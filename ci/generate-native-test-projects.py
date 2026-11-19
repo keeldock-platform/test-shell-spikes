@@ -172,7 +172,7 @@ mkdir -p "$TARGET_BUILD_DIR"
       </BuildActionEntry>
     </BuildActionEntries>
   </BuildAction>
-  <TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES">
+  <TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="NO">
     <EnvironmentVariables>
       <EnvironmentVariable key="SHELL_SPIKE_ID" value="$(SHELL_SPIKE_ID)" isEnabled="YES"/>
       <EnvironmentVariable key="SHELL_CASE_ID" value="$(SHELL_CASE_ID)" isEnabled="YES"/>
@@ -189,7 +189,7 @@ mkdir -p "$TARGET_BUILD_DIR"
   <LaunchAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" enableGPUFrameCaptureMode="0" allowLocationSimulation="YES">
     <BuildableProductRunnable runnableDebuggingMode="0"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="{app_target}" BuildableName="{app_bundle}" BlueprintName="ShellSpikeNativeHost" ReferencedContainer="container:{project_name}.xcodeproj"/></BuildableProductRunnable>
   </LaunchAction>
-  <ProfileAction buildConfiguration="Release" shouldUseLaunchSchemeArgsEnv="YES" savedToolIdentifier="" useCustomWorkingDirectory="NO" debugDocumentVersioning="YES"><BuildableProductRunnable runnableDebuggingMode="0"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="{app_target}" BuildableName="{app_bundle}" BlueprintName="ShellSpikeNativeHost" ReferencedContainer="container:{project_name}.xcodeproj"/></BuildableProductRunnable></ProfileAction>
+  <ProfileAction buildConfiguration="Release" shouldUseLaunchSchemeArgsEnv="NO" savedToolIdentifier="" useCustomWorkingDirectory="NO" debugDocumentVersioning="YES"><BuildableProductRunnable runnableDebuggingMode="0"><BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="{app_target}" BuildableName="{app_bundle}" BlueprintName="ShellSpikeNativeHost" ReferencedContainer="container:{project_name}.xcodeproj"/></BuildableProductRunnable></ProfileAction>
   <AnalyzeAction buildConfiguration="Debug"/>
   <ArchiveAction buildConfiguration="Release" revealArchiveInOrganizer="YES"/>
 </Scheme>

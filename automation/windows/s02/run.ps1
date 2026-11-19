@@ -122,21 +122,21 @@ function Write-Assertion([string]$AssertionId, [string]$Expected, [string]$Actua
     })
 }
 
-function Get-AppWindow([int]$Pid) {
+function Get-AppWindow([int]$AppProcessId) {
     $condition = [System.Windows.Automation.PropertyCondition]::new(
-        [System.Windows.Automation.AutomationElement]::ProcessIdProperty, $Pid)
+        [System.Windows.Automation.AutomationElement]::ProcessIdProperty, $AppProcessId)
     return [System.Windows.Automation.AutomationElement]::RootElement.FindFirst(
         [System.Windows.Automation.TreeScope]::Children, $condition)
 }
 
-function Wait-AppWindow([int]$Pid, [int]$TimeoutSeconds = 30) {
+function Wait-AppWindow([int]$AppProcessId, [int]$TimeoutSeconds = 30) {
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     do {
-        $window = Get-AppWindow $Pid
+        $window = Get-AppWindow $AppProcessId
         if ($null -ne $window) { return $window }
         Start-Sleep -Milliseconds 200
     } while ([DateTime]::UtcNow -lt $deadline)
-    throw "No top-level UI Automation window found for process $Pid."
+    throw "No top-level UI Automation window found for process $AppProcessId."
 }
 
 function Start-OrAttachApp {

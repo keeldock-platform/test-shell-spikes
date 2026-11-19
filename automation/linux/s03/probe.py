@@ -526,9 +526,14 @@ def make_unverified(case: dict, reason: str) -> list[dict]:
 def run_required_cell(case: dict, artifact_dir: Path, pyatspi, desktop) -> list[dict]:
     case_id = case["id"]
     results: dict[str, dict] = {}
-    header, header_rect = find_named(desktop, pyatspi, "Empty header area", "region")
+    # WebKit exposes ARIA regions as AT-SPI landmarks on some releases.
+    # Qualify by the exact accessible name and measured bounds, after startup.
+    found = wait_until(lambda: (lambda pair: pair if pair[0] is not None else None)(
+        find_named(desktop, pyatspi, "Empty header area")), 20.0)
+    header, header_rect = found or (None, None)
     if header is None or header_rect is None:
-        raise ProbeUnavailable("AT-SPI could not discover the empty header region")
+        write_json(artifact_dir / "recorder/s03-startup-tree.json", accessible_snapshot(desktop, pyatspi))
+        raise ProbeUnavailable("AT-SPI could not discover the empty header region after 20 seconds; see recorder/s03-startup-tree.json")
 
     # Positive click: GDK receives the real button event and the recorder captures
     # the entire compositor output, not only the app webview.
@@ -687,9 +692,14 @@ def run_fallback_case(case: dict, artifact_dir: Path, pyatspi, desktop) -> list[
     _mode_point, _, _, _, _ = click_accessible(desktop, pyatspi, case, artifact_dir, case["session"], "Select kit fallback mode", 1)
     if not wait_until(lambda: has_named_node(desktop, "Kit fallback mode selected", "status"), 3.0):
         raise ProbeUnavailable("the app did not confirm kit fallback mode through its accessible status")
-    header, header_rect = find_named(desktop, pyatspi, "Empty header area", "region")
+    # WebKit exposes ARIA regions as AT-SPI landmarks on some releases.
+    # Qualify by the exact accessible name and measured bounds, after startup.
+    found = wait_until(lambda: (lambda pair: pair if pair[0] is not None else None)(
+        find_named(desktop, pyatspi, "Empty header area")), 20.0)
+    header, header_rect = found or (None, None)
     if header is None or header_rect is None:
-        raise ProbeUnavailable("AT-SPI could not discover the empty header region")
+        write_json(artifact_dir / "recorder/s03-startup-tree.json", accessible_snapshot(desktop, pyatspi))
+        raise ProbeUnavailable("AT-SPI could not discover the empty header region after 20 seconds; see recorder/s03-startup-tree.json")
     point, target_seq, window_rect = target_point(header, header_rect, pyatspi, artifact_dir, case_id, "Empty header area")
     inject_input(case["session"], "click", x=point["x"], y=point["y"], button=3)
     seq = append_event(artifact_dir, case_id, "s03-secondary-click", {

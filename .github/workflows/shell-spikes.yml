@@ -68,6 +68,9 @@ jobs:
       - name: Check workflow YAML syntax
         run: |
           ruby -e 'require "yaml"; YAML.load_file(".github/workflows/shell-spikes.yml", aliases: true)'
+      - name: Finalize evidence hashes after cleanup
+        if: always()
+        run: python ci/hash-evidence.py
       - name: Upload static evidence
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
@@ -113,6 +116,9 @@ jobs:
         run: python3 ci/probe-runner.py macos
       - name: Run shared desktop and serial macOS cases
         run: bash ci/run-macos.sh
+      - name: Finalize evidence hashes after cleanup
+        if: always()
+        run: python ci/hash-evidence.py
       - name: Upload macOS evidence
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
@@ -161,6 +167,9 @@ jobs:
       - name: Run desktop Windows cases
         shell: pwsh
         run: ./ci/run-windows.ps1
+      - name: Finalize evidence hashes after cleanup
+        if: always()
+        run: python ci/hash-evidence.py
       - name: Upload Windows desktop evidence
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
@@ -209,6 +218,9 @@ jobs:
       - name: Run ARM64 native system-menu and Snap cases
         shell: pwsh
         run: ./ci/run-windows-client.ps1
+      - name: Finalize evidence hashes after cleanup
+        if: always()
+        run: python ci/hash-evidence.py
       - name: Upload Windows ARM64 evidence
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
@@ -278,6 +290,9 @@ jobs:
         run: python3 ci/probe-runner.py linux
       - name: Provision Ubuntu 24.04 GNOME session or record the declared fallback
         run: bash ci/run-linux.sh
+      - name: Finalize evidence hashes after cleanup
+        if: always()
+        run: python ci/hash-evidence.py
       - name: Upload Linux compositor evidence
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
@@ -325,6 +340,9 @@ jobs:
         run: python3 ci/probe-runner.py ios
       - name: Build unsigned simulator wrapper and run iPhone and iPad cases serially
         run: bash ci/run-ios.sh
+      - name: Finalize evidence hashes after cleanup
+        if: always()
+        run: python ci/hash-evidence.py
       - name: Upload iOS evidence
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
@@ -387,6 +405,9 @@ jobs:
         run: python3 ci/probe-runner.py android
       - name: Run Android API-level cases
         run: bash ci/run-android.sh
+      - name: Finalize evidence hashes after cleanup
+        if: always()
+        run: python ci/hash-evidence.py
       - name: Upload Android emulator evidence
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
@@ -440,6 +461,9 @@ jobs:
       - name: Produce result matrix and hashes
         if: always() && steps.dispatch-guard.outcome == 'success'
         run: python ci/collect.py --input collected --output evidence/collection --expected-sha "$FROZEN_SHA"
+      - name: Finalize evidence hashes after cleanup
+        if: always()
+        run: python ci/hash-evidence.py
       - name: Upload collection summary
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f

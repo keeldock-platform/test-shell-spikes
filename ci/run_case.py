@@ -177,7 +177,7 @@ def merge_lane_results(lane_file: Path) -> list[dict]:
     except (OSError, json.JSONDecodeError):
         return []
     if isinstance(value, dict):
-        results = value.get("results")
+        results = value.get("results", value.get("assertions"))
         return results if isinstance(results, list) else []
     return value if isinstance(value, list) else []
 
@@ -329,6 +329,8 @@ def normalize_results(
             })
             continue
         item = dict(rows[0])
+        item["laneVerdict"] = item.get("verdict")
+        item["laneActual"] = item.get("actual")
         item["expected"] = spec.get("expected", item.get("expected", "Declared case assertion"))
         evidence = item.get("evidence", [])
         if not isinstance(evidence, list) or any(not isinstance(reference, str) for reference in evidence):

@@ -104,6 +104,12 @@ async function start() {
     }
     await module[legacyName](root, { invoke, emitEvent: record, frame, caseId, loadAssetModule });
   }
+  const ready = document.createElement("output");
+  ready.id = "scenario-ready";
+  ready.setAttribute("role", "status");
+  ready.textContent = `Ready: ${id.toUpperCase()}: ${caseId ?? "unselected"}`;
+  ready.setAttribute("aria-label", ready.textContent);
+  root.append(ready);
   frame(1, "scenario-ready", { spike: id, caseId });
 }
 

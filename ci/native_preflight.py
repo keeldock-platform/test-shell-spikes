@@ -77,7 +77,15 @@ def display_macos() -> tuple[dict, dict]:
         except (json.JSONDecodeError, TypeError, ValueError):
             pass
     webkit = command(["/usr/libexec/PlistBuddy", "-c", "Print :CFBundleVersion", "/System/Library/Frameworks/WebKit.framework/Versions/A/Resources/Info.plist"])
-    return ({"resolution": resolution, "scale": scale, "refreshHz": refresh}, {"systemProfiler": raw, "webkitBuild": webkit})
+    native = None
+    if probe := os.environ.get("SHELL_MAC_DISPLAY_PROBE"):
+        try:
+            native = json.loads(command([probe, "--probe-only"]) or "null")
+            if isinstance(native, dict):
+                resolution, scale, refresh = (native.get(key) for key in ("resolution", "scale", "refreshHz"))
+        except (ValueError, TypeError):
+            pass
+    return ({"resolution": resolution, "scale": scale, "refreshHz": refresh}, {"systemProfiler": raw, "nativeDisplay": native, "webkitBuild": webkit})
 
 
 def display_windows() -> tuple[dict, dict]:

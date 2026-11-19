@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -30,7 +31,35 @@ def sha256(path: Path) -> str:
 def load_json(path: Path) -> dict:
     with path.open(encoding="utf-8") as stream:
         value = json.load(stream)
-    return value if isinstance(value, dict) else {}
+    if not isinstance(value, dict):
+        raise ValueError(f"{path.name} must be a JSON object")
+    return value
+
+
+def audit_hashes(root: Path) -> dict:
+    """Verify the uploader's manifest without trusting paths outside its artifact."""
+    manifest = root / "hashes.sha256"
+    errors = []
+    checked = 0
+    if not manifest.is_file():
+        return {"checkedFiles": 0, "errors": ["hashes.sha256 is missing"]}
+    try:
+        lines = manifest.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError):
+        return {"checkedFiles": 0, "errors": ["hashes.sha256 could not be read"]}
+    if not lines:
+        return {"checkedFiles": 0, "errors": ["hashes.sha256 is empty"]}
+    for line in lines:
+        digest, separator, reference = line.partition("  ")
+        path = (root / reference).resolve()
+        if (not separator or not re.fullmatch(r"[0-9a-f]{64}", digest)
+                or not path.is_relative_to(root.resolve()) or not path.is_file()):
+            errors.append(f"invalid hash entry: {reference}")
+            continue
+        checked += 1
+        if sha256(path) != digest:
+            errors.append(f"hash mismatch: {reference}")
+    return {"checkedFiles": checked, "errors": errors}
 
 
 def cell_name(environment: dict) -> str:
@@ -293,6 +322,8 @@ def main() -> int:
     cell_source_mismatches: dict[str, list[str]] = {}
     observed_source_shas: dict[str, set[str]] = {}
     problems: list[str] = []
+    ingestion: list[dict] = []
+    artifact_hashes: dict[str, dict] = {}
     manifests = sorted(source.rglob("environment.json"))
 
     def is_aggregate_manifest(path: Path) -> bool:
@@ -305,12 +336,18 @@ def main() -> int:
     for environment_path in manifests:
         manifest_dir = environment_path.parent
         artifact_root = manifest_dir.parents[1] if manifest_dir.parent.name == "cells" else manifest_dir
+        artifact_key = artifact_root.relative_to(source).as_posix()
+        if artifact_key not in artifact_hashes:
+            artifact_hashes[artifact_key] = audit_hashes(artifact_root)
+            problems.extend(f"{artifact_key}: {error}" for error in artifact_hashes[artifact_key]["errors"])
         try:
             environment = load_json(environment_path)
-        except (OSError, json.JSONDecodeError) as error:
+        except (OSError, ValueError) as error:
             problems.append(f"{environment_path}: invalid environment manifest ({error})")
             continue
         cell = cell_name(environment)
+        if cell not in REQUIRED_CELLS:
+            continue
         cells[cell] = {"cell": cell, "environment": environment}
         cell_artifacts[cell] = artifact_root
         environment_sha = str(environment.get("sourceSha") or "")
@@ -326,7 +363,7 @@ def main() -> int:
             continue
         try:
             assertion_manifest = load_json(assertions_path)
-        except (OSError, json.JSONDecodeError) as error:
+        except (OSError, ValueError) as error:
             problems.append(f"{cell}: invalid assertions.json ({error})")
             continue
         if not isinstance(assertion_manifest, dict):
@@ -336,6 +373,15 @@ def main() -> int:
         if not isinstance(assertions, list):
             problems.append(f"{cell}: assertions.json must use a {{results: [...]}} envelope")
             continue
+        ingestion.append({
+            "cell": cell,
+            "environment": environment_path.relative_to(source).as_posix(),
+            "assertions": assertions_path.relative_to(source).as_posix(),
+            "parsedResults": len(assertions),
+            "inputVerdicts": {verdict: sum(isinstance(row, dict) and row.get("verdict") == verdict
+                                           for row in assertions)
+                              for verdict in ("PASS", "FAIL", "UNVERIFIED")},
+        })
         assertion_sha = str(assertion_manifest.get("sourceSha") or "")
         if assertion_sha:
             observed_source_shas.setdefault(cell, set()).add(assertion_sha)
@@ -431,6 +477,9 @@ def main() -> int:
                 if cell_source_mismatches.get(required):
                     verdict = "UNVERIFIED"
                     actual = "UNVERIFIED: source SHA mismatch: " + "; ".join(dict.fromkeys(cell_source_mismatches[required]))
+                if artifact_root and artifact_hashes[artifact_root.relative_to(source).as_posix()]["errors"]:
+                    verdict = "UNVERIFIED"
+                    actual = "UNVERIFIED: artifact hash validation failed; see artifactHashes."
                 if verdict == "PASS" and not runtime_matches_pin(required, environment):
                     verdict = "UNVERIFIED"
                     actual = "UNVERIFIED: this cell has no reviewed exact host-runtime version pin."
@@ -442,6 +491,10 @@ def main() -> int:
                     "expected": spec.get("expected", "Declared case assertion"),
                     "actual": actual,
                     "verdict": verdict,
+                    "inputVerdict": rows[0].get("verdict") if len(rows) == 1 else None,
+                    "inputActual": rows[0].get("actual") if len(rows) == 1 else None,
+                    "laneVerdict": rows[0].get("laneVerdict") if len(rows) == 1 else None,
+                    "laneActual": rows[0].get("laneActual") if len(rows) == 1 else None,
                     "evidence": evidence,
                 }
                 if cell_source_mismatches.get(required):
@@ -455,6 +508,9 @@ def main() -> int:
 
     all_observed_shas = sorted({sha for values in observed_source_shas.values() for sha in values})
     summary = {
+        "schemaVersion": 2,
+        "ingestion": ingestion,
+        "artifactHashes": artifact_hashes,
         "sourceSha": all_observed_shas[0] if len(all_observed_shas) == 1 else None,
         "expectedSourceSha": args.expected_sha or None,
         "observedSourceShas": all_observed_shas,
@@ -479,6 +535,8 @@ def main() -> int:
     unverified = sum(result.get("verdict") == "UNVERIFIED" for result in matrix_results)
     failed = sum(result.get("verdict") == "FAIL" for result in matrix_results)
     print(f"Collected {len(cells)} cells, {len(matrix_results)} assertions, {unverified} unverified, {failed} failed.")
+    print(f"Parsed {sum(row['parsedResults'] for row in ingestion)} source results from {len(ingestion)} manifests; "
+          "job success does not imply assertion PASS; discovery observations remain unqualified until runtime freeze.")
     if problems:
         print("Collection problems:")
         for problem in problems:

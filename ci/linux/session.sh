@@ -94,7 +94,7 @@ run_in_session() {
   export DISPLAY="$display"
   Xvfb "$display" -screen 0 1600x1000x24 -ac +extension RANDR >"${shell_log}.xvfb" 2>&1 &
   outer_x_pid=$!
-  trap 'kill "$outer_x_pid" 2>/dev/null || true' RETURN
+  trap 'kill "$outer_x_pid" 2>/dev/null || true; wait "$outer_x_pid" 2>/dev/null || true' RETURN
   for _ in {1..40}; do
     if xdpyinfo -display "$display" >/dev/null 2>&1; then break; fi
     sleep 0.25

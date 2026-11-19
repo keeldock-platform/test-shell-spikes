@@ -96,6 +96,10 @@ else
         -destination "${S01_XCODE_DESTINATION:-platform=macOS}" \
         -resultBundlePath "$RESULT_BUNDLE" \
         "-only-testing:${S01_ONLY_TESTING_TARGET:-TrafficLightsUITests/TrafficLightsUITests/testS01TrafficLightsMatrix}" \
+        "S01_APP_BUNDLE_ID=$S01_APP_BUNDLE_ID" \
+        "S01_ARTIFACT_DIR=$S01_ARTIFACT_DIR" \
+        "S01_PERMISSION_PROMPT_PREFLIGHT=$S01_PERMISSION_PROMPT_PREFLIGHT" \
+        "SHELL_CASE_ID=$CASE_ID" \
         CODE_SIGNING_ALLOWED=NO \
         >"$EVIDENCE/recorder/s01-xcodebuild.log" 2>&1
       STATUS=$?

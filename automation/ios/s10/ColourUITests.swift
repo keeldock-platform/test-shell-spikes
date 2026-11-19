@@ -4,6 +4,9 @@ final class ColourUITests: XCTestCase {
     func testNativeColourInput() throws {
         let caseId = ProcessInfo.processInfo.environment["SHELL_CASE_ID"] ?? ""
         let app = XCUIApplication()
+        app.launchEnvironment = ProcessInfo.processInfo.environment.filter {
+            $0.key.hasPrefix("SHELL_")
+        }
         app.launch()
         let ready = !caseId.isEmpty && selectScenario(app, spike: "S10", caseId: caseId)
 
@@ -23,7 +26,7 @@ final class ColourUITests: XCTestCase {
         let caseMarker = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label CONTAINS[c] %@", "Ready: S10: \(caseId)"))
             .firstMatch
-        var selected = ready && caseMarker.exists
+        var selected = ready && caseMarker.waitForExistence(timeout: 30)
         let open = app.buttons["Open Appearance dialog"]
         if selected && open.waitForExistence(timeout: 10) { open.tap() }
 

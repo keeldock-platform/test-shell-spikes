@@ -23,9 +23,9 @@ class ProvisioningTests(unittest.TestCase):
     def test_discovery_boundary_and_attempt(self):
         policy = json.loads((ROOT / 'ci/environment-lock.json').read_text())['runtimePolicy']
         env = dict(GITHUB_ACTIONS='true', GITHUB_REF='refs/heads/shell-spikes/integration-1118',
-                   GITHUB_REF_TYPE='branch', GITHUB_RUN_NUMBER='5', GITHUB_RUN_ATTEMPT='1')
+                   GITHUB_REF_TYPE='branch', GITHUB_RUN_NUMBER='6', GITHUB_RUN_ATTEMPT='1')
         self.assertEqual(discovery_authorization_errors(policy, env), [])
-        for override in ({'GITHUB_RUN_NUMBER': '6'}, {'GITHUB_RUN_ATTEMPT': '2'}):
+        for override in ({'GITHUB_RUN_NUMBER': '7'}, {'GITHUB_RUN_ATTEMPT': '2'}):
             self.assertTrue(discovery_authorization_errors(policy, {**env, **override}))
 
     def test_avd_created_noninteractively_before_boot_for_every_api(self):

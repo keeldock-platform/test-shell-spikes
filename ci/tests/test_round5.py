@@ -103,7 +103,7 @@ class RoundFive(unittest.TestCase):
         self.assertIn('apps/test-shell-mobile/src-tauri/gen/android', build)
         self.assertIn('src-tauri/gen/android/gradle/wrapper', lock['android']['uiAutomator']['gradleWrapper'])
         self.assertIn('--project-dir "$android_project"', build)
-        self.assertIn(':app:assembleDebugAndroidTest', build)
+        self.assertIn(':app:assembleUniversalDebugAndroidTest', build)
         self.assertIn('project.android.compileSdk = 35', build)
         self.assertNotIn('/sdcard/', ''.join((ROOT / f'automation/android/{s}/{n}UiAutomator.java').read_text() for s,n in [('s10','Colour'),('s11','Accent')]))
 
@@ -180,7 +180,7 @@ class RoundFive(unittest.TestCase):
         project = repo / 'apps/test-shell-mobile/src-tauri/gen/android'
         (project / 'app').mkdir(parents=True)
         wrapper = project / 'gradlew'
-        wrapper.write_text("#!/bin/bash\nset -eu\n[[ \"$1\" == --project-dir ]]\ncd \"$2\"\nmkdir -p app/build/outputs/apk/androidTest/debug\nprintf apk > app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk\n")
+        wrapper.write_text("#!/bin/bash\nset -eu\n[[ \"$1\" == --project-dir ]]\ncd \"$2\"\n[[ \"${@: -1}\" == :app:assembleUniversalDebugAndroidTest ]]\nmkdir -p app/build/outputs/apk/androidTest/universal/debug\nprintf apk > app/build/outputs/apk/androidTest/universal/debug/app-debug-androidTest.apk\n")
         wrapper.chmod(0o755)
         aapt = repo / 'sdk/build-tools/35.0.0/aapt'; aapt.parent.mkdir(parents=True)
         aapt.write_text("#!/bin/sh\necho \"package: name='org.example.shellspikes.mobile.test'\"\necho \"instrumentation: name='androidx.test.runner.AndroidJUnitRunner'\"\n")

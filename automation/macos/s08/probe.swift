@@ -205,7 +205,7 @@ final class Probe {
     }
 
     func press(_ title: String) throws {
-        guard let target = find(title) else { throw ProbeFailure(description: "Accessibility control not found: \(title)") }
+        let target = try waitUntil("Accessibility control: \(title)", timeout: 20) { self.find(title) }
         let status = AXUIElementPerformAction(target, kAXPressAction as CFString)
         guard status == .success else { throw ProbeFailure(description: "Could not press \(title): AXError \(status.rawValue)") }
         emit("accessibility-press", ["control": title])
@@ -386,7 +386,10 @@ final class Probe {
         let firstCount = windows().filter { $0.title == "Settings" }.count
         let firstIsActive = focusedWindow()?.windowID == firstID
         observe("S08-A01", first, extra: ["caseId": "S08-MAC-01-entry-instance", "expectedWidth": 1040, "expectedHeight": 660])
-        let geometryMarker = try waitUntil("the Tauri logical content geometry marker") { self.findByPrefix("Native geometry: ") }
+        let geometryMarker = try waitUntil("the Tauri logical content geometry marker", timeout: 20) {
+            guard let marker = self.findByPrefix("Native geometry: settings ") else { return nil as String? }
+            return marker
+        }
         let expectedLogicalSize = geometryMarker.contains("Native geometry: settings 1040×660 logical points")
         emit("native-content-geometry", ["marker": geometryMarker, "nativeOuterBounds": rectArray(first.frame), "deviceScale": NSScreen.main?.backingScaleFactor ?? 0])
         try captureWholeDesktop("s08-s4-14.png")
@@ -409,7 +412,9 @@ final class Probe {
 
     private func runToolSettings() throws {
         guard process.activate(options: [.activateIgnoringOtherApps]) else { throw ProbeFailure(description: "Could not activate shell") }
-        _ = try waitUntil("the main native window") { self.mainWindow() }
+        let main = try waitUntil("the main native window") { self.mainWindow() }
+        try raise(main)
+        _ = try waitUntil("main window to become key before tool settings entry") { self.focusedWindow()?.windowID == main.windowID ? true : nil }
         try sendComma(option: true)
         let toolView = try waitUntil("the tool settings mock view") { self.find("Tool settings mock") }
         let settingsCount = windows().filter { $0.title == "Settings" }.count
@@ -608,22 +613,26 @@ final class Probe {
 
     private func openSettingsAndSelect(_ page: String) throws {
         guard process.activate(options: [.activateIgnoringOtherApps]) else { throw ProbeFailure(description: "Could not activate shell") }
-        _ = try waitUntil("main window") { self.mainWindow() }
+        let main = try waitUntil("main window") { self.mainWindow() }
+        try raise(main)
+        _ = try waitUntil("main window to become key before Settings entry") { self.focusedWindow()?.windowID == main.windowID ? true : nil }
         try sendComma()
         _ = try waitForSettings()
         try press(page)
     }
 
     private func counterValue(_ prefix: String) -> String? {
-        guard let element = findElement(containing: prefix) else { return nil }
-        return stringAttribute(element, "AXValue") ?? stringAttribute(element, "AXTitle")
+        findByPrefix(prefix)
     }
 
     private func textValuePrefix(_ prefix: String) -> String? { findByPrefix(prefix) }
 
     private func findByPrefix(_ prefix: String) -> String? {
         guard let element = findElement(containing: prefix) else { return nil }
-        return stringAttribute(element, "AXValue") ?? stringAttribute(element, "AXTitle")
+        return matchingAccessibilityText([
+            stringAttribute(element, "AXValue"), stringAttribute(element, "AXTitle"),
+            stringAttribute(element, "AXDescription"),
+        ], containing: prefix)
     }
 
     private func findElement(containing text: String, in root: AXUIElement? = nil) -> AXUIElement? {
@@ -636,6 +645,10 @@ final class Probe {
         }
         return nil
     }
+}
+
+func matchingAccessibilityText(_ values: [String?], containing text: String) -> String? {
+    values.compactMap { $0 }.first { $0.contains(text) }
 }
 
 func attribute(_ element: AXUIElement, _ name: String) -> Any? {

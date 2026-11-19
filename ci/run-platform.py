@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DESKTOP = ROOT / "apps/desktop/src-tauri"
 MOBILE = ROOT / "apps/test-shell-mobile/src-tauri"
 LOCK = ROOT / "ci/environment-lock.json"
+ANDROID_EMULATOR_PROCESS: subprocess.Popen | None = None
 
 
 def environment_lock() -> dict:
@@ -33,6 +34,7 @@ def execute(command: list[str], *, cwd: Path = ROOT) -> int:
 
 
 def start_android_emulator(api: str) -> int:
+    global ANDROID_EMULATOR_PROCESS
     android_lock = environment_lock()["android"]
     image_entry = android_lock["systemImages"].get(api, {})
     image = image_entry.get("package")
@@ -63,6 +65,16 @@ def start_android_emulator(api: str) -> int:
     if any(not package for package in packages):
         print("Android SDK package set is incomplete.", file=sys.stderr)
         return 78
+    # sdkmanager otherwise silently skips API 31 on EOF at its license prompt.
+    try:
+        licenses = subprocess.run([sdkmanager, "--licenses"], input="y\n" * 100,
+                                  text=True, timeout=120, check=False)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        print(f"Android SDK license preflight failed: {type(error).__name__}", file=sys.stderr)
+        return 78
+    if licenses.returncode:
+        print("Android SDK license acceptance failed.", file=sys.stderr)
+        return licenses.returncode
     install_status = execute([sdkmanager, "--channel=0", "--install", *packages])
     if install_status:
         return install_status
@@ -137,6 +149,7 @@ def start_android_emulator(api: str) -> int:
             stderr=subprocess.STDOUT,
         )
     os.environ["SHELL_ANDROID_EMULATOR_PID"] = str(process.pid)
+    ANDROID_EMULATOR_PROCESS = process
     try:
         wait_status = subprocess.run(["adb", "wait-for-device"], timeout=180, check=False).returncode
     except subprocess.TimeoutExpired:
@@ -153,9 +166,17 @@ def start_android_emulator(api: str) -> int:
 
 
 def stop_android_emulator() -> int:
+    global ANDROID_EMULATOR_PROCESS
     if not os.environ.get("SHELL_ANDROID_EMULATOR_PID"):
         return 0
     status = execute(["adb", "emu", "kill"])
+    if ANDROID_EMULATOR_PROCESS is not None:
+        try:
+            ANDROID_EMULATOR_PROCESS.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            ANDROID_EMULATOR_PROCESS.terminate()
+            ANDROID_EMULATOR_PROCESS.wait(timeout=10)
+        ANDROID_EMULATOR_PROCESS = None
     os.environ.pop("SHELL_ANDROID_EMULATOR_PID", None)
     return status
 

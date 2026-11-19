@@ -35,12 +35,12 @@ allprojects {
 }
 EOF
 
-"$gradle_wrapper" --project-dir "$android_project" --no-daemon --init-script "$init_script" :app:assembleDebugAndroidTest
+"$gradle_wrapper" --project-dir "$android_project" --no-daemon --init-script "$init_script" :app:assembleUniversalDebugAndroidTest
 
 candidates=()
 while IFS= read -r candidate; do
   candidates+=("$candidate")
-done < <(find "$app_module/build/outputs/apk/androidTest" -type f -name '*androidTest*.apk' -print 2>/dev/null | sort)
+done < <(find "$app_module/build/outputs/apk/androidTest/universal" -type f -name '*androidTest*.apk' -print 2>/dev/null | sort)
 [[ "${#candidates[@]}" -eq 1 ]] || {
   echo "Expected one AndroidX instrumentation APK, found ${#candidates[@]}" >&2
   exit 78

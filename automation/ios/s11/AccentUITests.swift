@@ -4,6 +4,9 @@ final class AccentUITests: XCTestCase {
     func testPolicyFixture() throws {
         let caseId = ProcessInfo.processInfo.environment["SHELL_CASE_ID"] ?? ""
         let app = XCUIApplication()
+        app.launchEnvironment = ProcessInfo.processInfo.environment.filter {
+            $0.key.hasPrefix("SHELL_")
+        }
         app.launch()
         let selected = !caseId.isEmpty && selectScenario(app, spike: "S11", caseId: caseId)
 
@@ -19,7 +22,7 @@ final class AccentUITests: XCTestCase {
         let readyMarker = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label CONTAINS[c] %@", "Ready: S11: \(caseId)"))
             .firstMatch
-        let ready = selected && readyMarker.exists
+        let ready = selected && readyMarker.waitForExistence(timeout: 30)
         let system = app.buttons["Use System accent"]
         let brand = app.buttons["Use brand accent"]
         let status = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "System is hidden")).firstMatch

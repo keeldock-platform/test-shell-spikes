@@ -161,6 +161,9 @@ def run_native(platform: str, driver: Path, case_id: str, evidence: Path, env: d
         return subprocess.run([
             "xcodebuild", "test", "-project", project, "-scheme", scheme,
             "-destination", destination, "-resultBundlePath", result_bundle, "CODE_SIGNING_ALLOWED=NO",
+            *[f"{key}={value}" for key, value in {**env, "SHELL_CASE_ID": case_id, "SHELL_EVIDENCE_DIR": str(evidence)}.items()
+              if key in {"SHELL_SPIKE_ID", "SHELL_CASE_ID", "SHELL_EVIDENCE_DIR",
+                         "SHELL_MOBILE_EVIDENCE_SUBPATH", "SHELL_MOBILE_BUNDLE_ID", "SHELL_IOS_XCRESULT_PATH"}],
             "-only-testing:AccentUITests/AccentUITests/testPolicyFixture",
         ], env={**env, "SHELL_CASE_ID": case_id, "SHELL_EVIDENCE_DIR": str(evidence)}, timeout=900)
     if case_id == "S11-ANDROID-PROVIDER-UNAVAILABLE":
