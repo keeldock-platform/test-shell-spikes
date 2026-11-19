@@ -81,6 +81,7 @@ def command_output(argv: list[str]) -> tuple[int, str]:
 
 def process_present(pattern: str) -> bool:
     code, output = command_output(["pgrep", "-af", pattern])
+    print("S03 process probe: " + json.dumps({"pattern": pattern, "exit": code, "output": output}), flush=True)
     if code != 0:
         return False
     return any(pattern not in line or "pgrep -af" not in line for line in output.splitlines())
@@ -696,6 +697,8 @@ def run_fallback_case(case: dict, artifact_dir: Path, pyatspi, desktop) -> list[
     case_id = case["id"]
     _mode_point, _, _, _, _ = click_accessible(desktop, pyatspi, case, artifact_dir, case["session"], "Select kit fallback mode", 1)
     if not wait_until(lambda: has_named_node(desktop, "Kit fallback mode selected", "status"), 3.0):
+        write_json(artifact_dir / "recorder/s03-fallback-status-tree.json", accessible_snapshot(desktop, pyatspi))
+        emit_capture_point(artifact_dir, case_id, "fallback-status-missing", _mode_point, "Select kit fallback mode")
         raise ProbeUnavailable("the app did not confirm kit fallback mode through its accessible status")
     # WebKit exposes ARIA regions as AT-SPI landmarks on some releases.
     # Qualify by the exact accessible name and measured bounds, after startup.

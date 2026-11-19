@@ -10,6 +10,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def pin(project, version):
     lock = json.loads((ROOT / 'ci/environment-lock.json').read_text())['android']
+    # CLI templates no longer supply this AGP 8 prerequisite. Preserve every
+    # other generated property (including cache and release settings).
+    gradle_properties = project / 'gradle.properties'
+    source = gradle_properties.read_text() if gradle_properties.exists() else ''
+    source = re.sub(r'^\s*android\.useAndroidX\s*=.*\n?', '', source, flags=re.M)
+    gradle_properties.write_text(source.rstrip() + '\nandroid.useAndroidX=true\n')
     # buildSrc contributes its implementation dependencies to the Rust plugin classpath.
     # Pin both graphs: Gradle otherwise selects buildSrc's newer AGP over the root pin.
     for script in (project / 'build.gradle.kts', project / 'buildSrc/build.gradle.kts'):

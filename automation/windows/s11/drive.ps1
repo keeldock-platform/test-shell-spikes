@@ -49,8 +49,8 @@ if (Test-Path $eventPath) {
         try { $row = $line | ConvertFrom-Json; if ($row.hostPid -eq [int]$env:SHELL_APP_PID) { $rows += $row } } catch {}
     }
 }
-function Get-Fields($Row) { if ($Row.fields -is [System.Management.Automation.PSCustomObject]) { return $Row.fields }; return $Row }
-function Get-EventName($Row) { if ($Row.name) { return $Row.name }; if ($Row.fields.name) { return $Row.fields.name }; return $Row.event }
+function Get-Fields($Row) { if ($Row.detail.fields -is [System.Management.Automation.PSCustomObject]) { return $Row.detail.fields }; if ($Row.fields -is [System.Management.Automation.PSCustomObject]) { return $Row.fields }; return $Row }
+function Get-EventName($Row) { if ($Row.name) { return $Row.name }; if ($Row.detail.name) { return $Row.detail.name }; if ($Row.fields.name) { return $Row.fields.name }; return $Row.event }
 $native = @($rows | Where-Object { (Get-EventName $_) -eq 's11.native-event' })
 $updates = @($rows | Where-Object { (Get-EventName $_) -eq 's11.host-and-token-update' })
 $frames = @($rows | Where-Object { (Get-Fields $_).phase -eq 'tokens-mutated' })
@@ -58,9 +58,9 @@ $sequences = @($native | ForEach-Object { [string](Get-Fields $_).sequence })
 $correlated = @($updates | Where-Object { $sequences -contains [string](Get-Fields $_).sequence })
 $readyEvents = @('s11.listener-ready', 's11.platform-policy', 's11.clamp-result', 's11.high-contrast-ignored-system')
 $ready = [bool]($rows | Where-Object { $readyEvents -contains (Get-EventName $_) } | Select-Object -First 1)
-$readerReady = [bool]($rows | Where-Object { (Get-EventName $_) -eq 's11.reader-ready' } | Select-Object -First 1)
+$readerReady = [bool]($rows | Where-Object { (Get-EventName $_) -eq 's11.reader-ready' -and (Get-Fields $_).available -eq $true } | Select-Object -First 1)
 $initial = $rows | Where-Object { (Get-EventName $_) -eq 's11.initial-reader-snapshot' } | Select-Object -First 1
-$hostRgb = if ($initial) { (Get-Fields $initial).rgb } else { $null }
+$hostRgb = if ($native.Count -gt 0 -and $correlated.Count -gt 0) { (Get-Fields $native[-1]).rgb } elseif ($initial) { (Get-Fields $initial).rgb } else { $null }
 $readRgb = $null
 try { $readRgb = (Get-Content $readbackPath -Raw | ConvertFrom-Json).rgb } catch {}
 $readbackMatches = $false

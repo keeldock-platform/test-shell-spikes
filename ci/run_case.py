@@ -253,7 +253,7 @@ def materialize_s02_geometry(scenario: Path) -> None:
             continue
         if not isinstance(event, dict) or not isinstance(event.get("data"), dict):
             continue
-        for key in ("bounds", "targetBounds", "buttonBounds", "before", "after"):
+        for key in ("bounds", "targetBounds", "buttonBounds", "windowBounds", "menuBounds", "before", "after"):
             bounds = event["data"].get(key)
             if not isinstance(bounds, dict) or any(
                 type(bounds.get(axis)) not in (int, float) or not math.isfinite(bounds[axis])
@@ -288,8 +288,9 @@ def attach_case_evidence(results: list[dict], specs: list[dict], scenario: Path,
             elif source == "screen":
                 candidates = [*sorted((scenario / "screens").glob("*")), *sorted((scenario / "recorder").glob("*.png"))]
             elif source == "native-tree":
-                candidates = [path for path in sorted((scenario / "recorder").glob("*"))
-                              if "native-tree" in path.name.lower() or "accessibility-tree" in path.name.lower()]
+                candidates = sorted((scenario / "native-tree").glob("*.json"))
+                candidates += [path for path in sorted((scenario / "recorder").glob("*"))
+                               if "native-tree" in path.name.lower() or "accessibility-tree" in path.name.lower()]
             elif source == "geometry-json":
                 candidates = [scenario / "recorder/geometry.json"]
             elif source == "native-readback":

@@ -174,8 +174,18 @@ function Get-AppWindow([int]$AppProcessId) {
 
 function Wait-AppWindow([int]$AppProcessId, [int]$TimeoutSeconds = 30) {
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    $providerTimeouts = 0
     do {
-        $window = Get-AppWindow $AppProcessId
+        try { $window = Get-AppWindow $AppProcessId }
+        catch {
+            $null = Write-Event 'startup-window-provider-error' @{ processId = $AppProcessId; error = $_.Exception.ToString() }
+            # Cold providers may not answer their first bounded call. Never
+            # increase the per-call limit or accumulate unbounded hung workers.
+            if ($_.Exception.ToString() -notmatch 'UIA per-call timeout') { throw }
+            $providerTimeouts++
+            if ($providerTimeouts -ge 3) { throw }
+            $window = $null
+        }
         if ($null -ne $window) { return $window }
         Start-Sleep -Milliseconds 200
     } while ([DateTime]::UtcNow -lt $deadline)
@@ -342,7 +352,7 @@ function Find-ActiveMenu([int]$TimeoutSeconds = 5) {
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     $expectedNames = @('Restore', 'Move', 'Size', 'Minimize', 'Minimise', 'Maximize', 'Maximise', 'Close')
     do {
-        $roots = @([ScopedUia]::Walk([System.Windows.Automation.AutomationElement]::RootElement, 1, 200))
+        $roots = @([ScopedUia]::NativeMenus())
         $roots += $script:Window
         foreach ($root in $roots) {
             $isMenu = ([ScopedUia]::Info($root)).ControlType -eq [System.Windows.Automation.ControlType]::Menu
@@ -574,7 +584,7 @@ function Invoke-SnapObservation($Case) {
     }
     $tree = $null
     $frame = $null
-    $baseline = @([ScopedUia]::Walk([System.Windows.Automation.AutomationElement]::RootElement, 1, 200) |
+    $baseline = @([ScopedUia]::ShellWindows() |
         ForEach-Object { $_.GetRuntimeId() -join ':' })
     foreach ($trigger in @('HTMAXBUTTON-hover', 'Win+Z')) {
         if ($trigger -eq 'Win+Z') {
@@ -584,7 +594,7 @@ function Invoke-SnapObservation($Case) {
         }
         $deadline = [DateTime]::UtcNow.AddSeconds(8)
         do {
-            $roots = @([ScopedUia]::Walk([System.Windows.Automation.AutomationElement]::RootElement, 1, 200))
+            $roots = @([ScopedUia]::ShellWindows())
             $probe = @()
             foreach ($root in $roots) {
                 $owner = Get-Process -Id ([ScopedUia]::Info($root)).ProcessId -ErrorAction SilentlyContinue
@@ -809,7 +819,7 @@ function Invoke-OneCase($Case) {
         } catch {
             $null = Write-Event 'case-error-tree-unavailable' @{ message = $_.Exception.ToString() }
         }
-        $verdict = if ($caseError.Exception.Message -match 'UI Automation|no top-level|runner|desktop|session|popup') { 'UNVERIFIED' } else { 'FAIL' }
+        $verdict = if ($caseError.Exception.Message -match 'UI Automation|UIA per-call timeout|UIA scoped|No native or kit system-menu UIA tree appeared|no top-level|runner|desktop|session|popup') { 'UNVERIFIED' } else { 'FAIL' }
         Write-CaseResult $Case 'All case assertions are evidenced.' $caseError.Exception.Message $verdict $pointers
         # Collect later case evidence and write the always-upload result files.
     }

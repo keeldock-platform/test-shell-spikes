@@ -2,9 +2,50 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows.Automation;
 
 public static class ScopedUia {
+    private delegate bool EnumWindow(IntPtr handle, IntPtr parameter);
+    [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindow callback, IntPtr parameter);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr handle, StringBuilder name, int count);
+    [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr handle);
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
+    public static AutomationElement[] ShellWindows() {
+        var handles = new List<IntPtr>();
+        EnumWindows((handle, parameter) => {
+            uint pid;
+            GetWindowThreadProcessId(handle, out pid);
+            if (!IsWindowVisible(handle)) return true;
+            try {
+                using (var owner = Process.GetProcessById((int)pid)) {
+                    var name = owner.ProcessName;
+                    if (name == "explorer" || name == "ShellExperienceHost" || name == "ShellHost") handles.Add(handle);
+                }
+            } catch (ArgumentException) { /* Window closed during enumeration. */ }
+            return handles.Count < 200;
+        }, IntPtr.Zero);
+        if (handles.Count >= 200) throw new InvalidOperationException("Shell window node budget exceeded");
+        var windows = new List<AutomationElement>();
+        foreach (var handle in handles) windows.Add(Call(() => AutomationElement.FromHandle(handle), "shell-window"));
+        return windows.ToArray();
+    }
+    public static AutomationElement[] NativeMenus() {
+        var handles = new List<IntPtr>();
+        EnumWindows((handle, parameter) => {
+            var name = new StringBuilder(256);
+            GetClassName(handle, name, name.Capacity);
+            if (IsWindowVisible(handle) && name.ToString() == "#32768") handles.Add(handle);
+            return handles.Count < 200;
+        }, IntPtr.Zero);
+        if (handles.Count >= 200) throw new InvalidOperationException("Native menu node budget exceeded");
+        var menus = new List<AutomationElement>();
+        foreach (var handle in handles) {
+            menus.Add(Call(() => AutomationElement.FromHandle(handle), "native-menu-window"));
+        }
+        return menus.ToArray();
+    }
     public static T Call<T>(Func<T> operation, string name) {
         T result = default(T);
         Exception failure = null;
@@ -44,8 +85,13 @@ public static class ScopedUia {
         return nodes.ToArray();
     }
     public static AutomationElement WindowForPid(int processId) {
-        return Call(() => AutomationElement.RootElement.FindFirst(TreeScope.Children,
-            new PropertyCondition(AutomationElement.ProcessIdProperty, processId)), "top-level-window");
+        // Enumerating desktop UIA providers blocks on unrelated startup windows.
+        // Resolve the owned HWND first, then contact only that provider.
+        using (var process = Process.GetProcessById(processId)) {
+            var handle = process.MainWindowHandle;
+            if (handle == IntPtr.Zero) return null;
+            return Call(() => AutomationElement.FromHandle(handle), "top-level-window");
+        }
     }
     public static AutomationElement.AutomationElementInformation Info(AutomationElement node) {
         return Call(() => node.Current, "properties");
@@ -54,6 +100,7 @@ public static class ScopedUia {
         Call(() => { node.SetFocus(); return true; }, "focus");
     }
     public static string Name(AutomationElement node) { return Call(() => node.Current.Name, "name"); }
+    public static string Help(AutomationElement node) { return Call(() => node.Current.HelpText, "help-text"); }
     public static AutomationElement FindName(AutomationElement root, string name) {
         // FindFirst stops at the requested control. Walking every sibling first
         // hit unresponsive provider nodes before reaching an already-ready input.

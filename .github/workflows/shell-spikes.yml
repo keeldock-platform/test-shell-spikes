@@ -83,6 +83,7 @@ jobs:
         with:
           name: shell-spikes-${{ inputs.frozen_sha }}-public-static-all-cases
           path: ${{ env.SHELL_UPLOAD_DIR }}
+          include-hidden-files: true
           retention-days: 14
           if-no-files-found: warn
 
@@ -135,6 +136,7 @@ jobs:
         with:
           name: shell-spikes-${{ inputs.frozen_sha }}-mac-desktop-all-cases
           path: ${{ env.SHELL_UPLOAD_DIR }}
+          include-hidden-files: true
           retention-days: 14
           if-no-files-found: warn
 
@@ -190,6 +192,7 @@ jobs:
         with:
           name: shell-spikes-${{ inputs.frozen_sha }}-win-desktop-all-cases
           path: ${{ env.SHELL_UPLOAD_DIR }}
+          include-hidden-files: true
           retention-days: 14
           if-no-files-found: warn
 
@@ -245,6 +248,7 @@ jobs:
         with:
           name: shell-spikes-${{ inputs.frozen_sha }}-win-client-all-cases
           path: ${{ env.SHELL_UPLOAD_DIR }}
+          include-hidden-files: true
           retention-days: 14
           if-no-files-found: warn
 
@@ -320,6 +324,7 @@ jobs:
         with:
           name: shell-spikes-${{ inputs.frozen_sha }}-${{ matrix.cell }}-all-cases
           path: ${{ env.SHELL_UPLOAD_DIR }}
+          include-hidden-files: true
           retention-days: 14
           if-no-files-found: warn
 
@@ -374,6 +379,7 @@ jobs:
         with:
           name: shell-spikes-${{ inputs.frozen_sha }}-ios-colour-all-cases
           path: ${{ env.SHELL_UPLOAD_DIR }}
+          include-hidden-files: true
           retention-days: 14
           if-no-files-found: warn
 
@@ -448,6 +454,7 @@ jobs:
         with:
           name: shell-spikes-${{ inputs.frozen_sha }}-android-api-${{ matrix.api }}-all-cases
           path: ${{ env.SHELL_UPLOAD_DIR }}
+          include-hidden-files: true
           retention-days: 14
           if-no-files-found: warn
 
@@ -496,5 +503,6 @@ jobs:
         with:
           name: shell-spikes-${{ inputs.frozen_sha }}-collect-all-cases
           path: ${{ env.SHELL_UPLOAD_DIR }}
+          include-hidden-files: true
           retention-days: 14
           if-no-files-found: warn

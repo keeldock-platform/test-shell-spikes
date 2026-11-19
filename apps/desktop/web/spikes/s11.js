@@ -366,6 +366,9 @@ export async function registerSpike({ root, caseId, invoke, frame, record }) {
   try {
     const initial = await invoke("plugin:s11-accent|current_accent", {});
     acceptSnapshot(initial, "initial-reader-snapshot");
+    record("s11.reader-ready", { available: snapshot.available === true,
+      reason: snapshot.reason, source: "current-accent-after-listen",
+      portalInterfaceVersion: snapshot.portalInterfaceVersion });
     record("s11.initial-reader-snapshot", {
       sequence: initial.sequence ?? 0,
       nativeEvent: false,

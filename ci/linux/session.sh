@@ -31,7 +31,7 @@ provision_host() {
 
   local -a packages
   if [[ "$profile" == "Fedora current" ]]; then
-    packages=(at-spi2-core dbus-daemon dbus-x11 ffmpeg-free gnome-shell gnome-session gjs
+    packages=(at-spi2-core dbus-daemon dbus-x11 procps-ng ffmpeg-free gnome-shell gnome-session gjs
       gsettings-desktop-schemas gnome-screenshot gtk3-devel webkit2gtk4.1-devel
       libappindicator-gtk3-devel openssl-devel librsvg2-devel libxdo-devel patchelf
       python3-pyatspi xdpyinfo xprop xrandr xrdb xorg-x11-xauth xdotool xorg-x11-server-Xvfb
@@ -47,7 +47,7 @@ provision_host() {
     bash ci/apt-host.sh update
     screenshot=gnome-screenshot
     if [[ "$profile" == "Ubuntu 24.04" ]]; then screenshot=gnome-screenshot=41.0-2build2; fi
-    packages=(at-spi2-core dbus-x11 ffmpeg gnome-shell gnome-shell-common gnome-session gjs
+    packages=(at-spi2-core dbus-x11 procps ffmpeg gnome-shell gnome-shell-common gnome-session gjs
       gsettings-desktop-schemas "$screenshot" libssl-dev librsvg2-dev
       libayatana-appindicator3-dev libgtk-3-dev libwebkit2gtk-4.1-dev patchelf
       python3-pyatspi x11-utils x11-xserver-utils xauth xdotool xvfb metacity)
@@ -182,14 +182,15 @@ run_in_session() {
     pipewire_pid=""
     wireplumber_pid=""
     screencast_pid=""
+    source ci/linux/stop-owned.sh
     stop_capture_services() {
-      if [[ -n "$shell_pid" ]]; then kill "$shell_pid" 2>/dev/null || true; wait "$shell_pid" 2>/dev/null || true; fi
+      stop_owned_process "$shell_pid"
       if [[ -n "$input_daemon_pid" ]]; then
-        sudo --non-interactive pkill -x ydotoold 2>/dev/null || true
-        wait "$input_daemon_pid" 2>/dev/null || true
+        timeout 5 sudo --non-interactive pkill -x ydotoold 2>/dev/null || true
+        stop_owned_process "$input_daemon_pid"
       fi
       for process_id in "$screencast_pid" "$wireplumber_pid" "$pipewire_pid"; do
-        if [[ -n "$process_id" ]]; then kill "$process_id" 2>/dev/null || true; wait "$process_id" 2>/dev/null || true; fi
+        stop_owned_process "$process_id"
       done
     }
     trap stop_capture_services EXIT
@@ -215,7 +216,7 @@ run_in_session() {
     else
       if gnome-shell --help 2>&1 | grep -q -- --x11; then
         export SHELL_LINUX_COMPOSITOR=gnome-shell-x11
-        gnome-shell --x11 --replace --sm-disable >"$log" 2>&1 &
+        gnome-shell --x11 --replace --sm-disable --unsafe-mode >"$log" 2>&1 &
       else
         export SHELL_LINUX_COMPOSITOR=metacity-x11
         echo "GNOME Shell has no X11 backend; using distribution Metacity X11" | tee "${log}.backend"
@@ -236,6 +237,9 @@ run_in_session() {
       exit 78
     fi
     printf "Session backend=%s; GNOME=%s\n" "${SHELL_LINUX_COMPOSITOR:-gnome-shell-wayland}" "$(gnome-shell --version)" | tee "${log}.backend-version"
+    if [[ "$SHELL_LINUX_COMPOSITOR" != metacity-x11 ]]; then
+      bash ci/linux/gnome-normal-mode.sh "${log}.normal-mode"
+    fi
     export SHELL_LINUX_SESSION_READY=1
     if [[ "$SHELL_LINUX_COMPOSITOR" != metacity-x11 ]]; then export SHELL_GNOME_SESSION_READY=1; fi
     export SHELL_GNOME_VERSION="$(gnome-shell --version | tr -d '\''\r'\'')"
@@ -288,6 +292,9 @@ run_in_session() {
         cat "${log}.input" >&2 || true
         exit 78
       fi
+    fi
+    if [[ "$SHELL_LINUX_COMPOSITOR" != metacity-x11 ]]; then
+      bash ci/linux/portal-ready.sh "${log}.portal-readiness"
     fi
     command="$1"
     shift

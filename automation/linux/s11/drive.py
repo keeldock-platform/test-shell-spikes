@@ -27,7 +27,16 @@ fixture_only = case_id in {
 probe = subprocess.run(["bash", "automation/accent/linux-probe.sh"], capture_output=True, text=True, timeout=90)
 probe_path.write_text(probe.stdout + probe.stderr, encoding="utf-8")
 key_present = "gnome_accent_key=present" in probe.stdout
-read_present = "org.freedesktop.portal.Settings.Read" in probe.stdout and "(ddd)" in probe.stdout
+def portal_rgb_from_output(output):
+    triples = re.findall(r'^\s*\(<<\(\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*\)>>,\)\s*$', output, re.M)
+    if not triples:
+        return None
+    values = tuple(float(value) for value in triples[-1])
+    return values if all(0 <= value <= 1 for value in values) else None
+
+
+probe_rgb = portal_rgb_from_output(probe.stdout)
+read_present = probe.returncode == 0 and probe_rgb is not None
 changed = False
 if fixture_only:
     change_path.write_text("No OS setting change is required for this page fixture.\n", encoding="utf-8")
@@ -51,10 +60,14 @@ if events_file.is_file():
         except json.JSONDecodeError:
             continue
 def event_name(row):
-    return row.get("name") or row.get("event") or (row.get("fields") or {}).get("name", "")
+    detail = row.get("detail") if isinstance(row.get("detail"), dict) else {}
+    return row.get("name") or row.get("event") or detail.get("name") or (row.get("fields") or {}).get("name", "")
 
 
 def event_fields(row):
+    detail = row.get("detail") if isinstance(row.get("detail"), dict) else {}
+    if isinstance(detail.get("fields"), dict):
+        return detail["fields"]
     return row.get("fields") if isinstance(row.get("fields"), dict) else row
 
 
@@ -68,12 +81,17 @@ ready_events = {
     "s11.high-contrast-ignored-system",
 }
 ready = any(event_name(row) in ready_events for row in event_lines)
-reader_ready = any(event_name(row) == "s11.reader-ready" for row in event_lines)
+reader_ready = any(event_name(row) == "s11.reader-ready" and event_fields(row).get("available") is True for row in event_lines)
 initial_snapshot = next((event_fields(row) for row in event_lines if event_name(row) == "s11.initial-reader-snapshot"), {})
 readback_text = change_path.read_text(encoding="utf-8", errors="replace")
-matches = re.findall(r"\(\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*\)", readback_text)
-portal_rgb = tuple(float(value) for value in matches[-1]) if matches else None
-host_rgb = initial_snapshot.get("rgb")
+portal_rgb = portal_rgb_from_output(readback_text) or probe_rgb
+if portal_rgb is not None:
+    (recorder / "native-readback.json").write_text(json.dumps({
+        "source": "org.freedesktop.portal.Settings.Read org.freedesktop.appearance accent-color",
+        "rgb": portal_rgb, "probeRgb": probe_rgb, "changed": changed,
+    }, indent=2) + "\n")
+current_host = event_fields(native[-1]) if native and matched_updates else initial_snapshot
+host_rgb = current_host.get("rgb")
 readback_matches = bool(portal_rgb and isinstance(host_rgb, list) and len(host_rgb) == 3 and
                         max(abs(portal_rgb[index] - float(host_rgb[index])) for index in range(3)) <= 1.0 / 255.0)
 

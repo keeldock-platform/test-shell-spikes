@@ -126,6 +126,13 @@ export async function registerSpike({ root, caseId, invoke, frame, record }) {
   main.append(title, description, maximize, useKitFallback, useNativeMenu, status);
   shell.append(header, main);
   root.replaceChildren(shell);
+  // Read-only input receipt distinguishes a compositor/input coordinate failure
+  // from an action or AX-status failure. A sent command alone proves neither.
+  shell.addEventListener("pointerdown", (event) => {
+    record("s03-input-observed", { caseId, button: event.button, trusted: event.isTrusted,
+      screenX: event.screenX, screenY: event.screenY, clientX: event.clientX, clientY: event.clientY,
+      target: event.target.getAttribute("aria-label") || event.target.textContent.slice(0, 120) });
+  }, true);
 
   function updateRegions() {
     const cssToGdkScale = 1;

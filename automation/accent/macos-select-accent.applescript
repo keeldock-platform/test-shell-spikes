@@ -19,10 +19,18 @@ on run argv
                             set candidateName to name of candidate as text
                             set candidateDescription to description of candidate as text
                             set candidateHelp to ""
+                            set candidateIdentifier to ""
+                            set candidateValue to ""
                             try
                                 set candidateHelp to value of attribute "AXHelp" of candidate as text
                             end try
-                            set observed to observed & candidateRole & " | " & candidateName & " | " & candidateDescription & " | help=" & candidateHelp & linefeed
+                            try
+                                set candidateIdentifier to value of attribute "AXIdentifier" of candidate as text
+                            end try
+                            try
+                                set candidateValue to value of attribute "AXValue" of candidate as text
+                            end try
+                            set observed to observed & candidateRole & " | " & candidateName & " | " & candidateDescription & " | help=" & candidateHelp & " | id=" & candidateIdentifier & " | value=" & candidateValue & linefeed
                             if candidateName is targetLabel or candidateDescription is targetLabel or candidateHelp is targetLabel then
                                 if candidateRole is "AXRadioButton" or candidateRole is "AXButton" then
                                     click candidate

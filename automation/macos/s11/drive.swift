@@ -49,10 +49,14 @@ let rows: [[String: Any]] = lines.compactMap { line in
 }
 func eventName(_ row: [String: Any]) -> String {
     if let name = row["name"] as? String { return name }
+    if let detail = row["detail"] as? [String: Any], let name = detail["name"] as? String { return name }
     if let fields = row["fields"] as? [String: Any], let name = fields["name"] as? String { return name }
     return row["event"] as? String ?? ""
 }
-func eventFields(_ row: [String: Any]) -> [String: Any] { row["fields"] as? [String: Any] ?? row }
+func eventFields(_ row: [String: Any]) -> [String: Any] {
+    if let detail = row["detail"] as? [String: Any], let fields = detail["fields"] as? [String: Any] { return fields }
+    return row["fields"] as? [String: Any] ?? row
+}
 func rgb(_ row: [String: Any]) -> [Double]? {
     guard let values = eventFields(row)["rgb"] as? [NSNumber], values.count == 3 else { return nil }
     return values.map(\.doubleValue)
@@ -62,7 +66,7 @@ let readyEvents: Set<String> = [
     "s11.high-contrast-ignored-system",
 ]
 let ready = rows.contains(where: { readyEvents.contains(eventName($0)) })
-let readerReady = rows.contains(where: { eventName($0) == "s11.reader-ready" })
+let readerReady = rows.contains(where: { eventName($0) == "s11.reader-ready" && eventFields($0)["available"] as? Bool == true })
 let native = rows.filter { eventName($0) == "s11.native-event" }
 let updates = rows.filter { eventName($0) == "s11.host-and-token-update" }
 let eventSequences = Set(native.compactMap { eventFields($0)["sequence"] as? Int })
@@ -71,7 +75,7 @@ let frames = rows.filter { (eventFields($0)["phase"] as? String) == "tokens-muta
 let initial = rows.first(where: { eventName($0) == "s11.initial-reader-snapshot" })
 let readbackRGB = (try? JSONSerialization.jsonObject(with: Data(contentsOf: recorder.appendingPathComponent("native-readback.json")))) as? [String: Any]
 let independentRGB = readbackRGB?["rgb"] as? [NSNumber]
-let hostRGB = initial.flatMap(rgb)
+let hostRGB = (!native.isEmpty && !correlated.isEmpty ? native.last : initial).flatMap(rgb)
 let readbackMatches = independentRGB?.count == 3 && hostRGB?.count == 3 && zip(independentRGB!, hostRGB!).allSatisfy { pair in
     abs(pair.0.doubleValue - pair.1) <= 1.0 / 255.0
 }

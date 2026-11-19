@@ -9,7 +9,9 @@ from run_case import write_hashes
 
 
 def seal(root, destination):
-    shutil.copytree(root, destination, ignore=shutil.ignore_patterns('hashes.sha256'))
+    # GIO screenshot saves leave transient atomic-write files. They are neither
+    # captures nor stable evidence, and upload-artifact omits dotfiles by default.
+    shutil.copytree(root, destination, ignore=shutil.ignore_patterns('hashes.sha256', '.goutputstream-*'))
     write_hashes(destination)
     return destination
 

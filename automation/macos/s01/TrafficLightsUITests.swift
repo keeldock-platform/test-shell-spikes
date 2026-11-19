@@ -163,7 +163,11 @@ final class TrafficLightsUITests: XCTestCase {
     private func stateLabel() -> String {
         // Accessibility values can be NSNumber (for example a checkbox's 0).
         // NSPredicate CONTAINS on those values raises NSInvalidArgumentException.
-        for state in app.descendants(matching: .any).allElementsBoundByIndex {
+        // Fullscreen reparents the WebView and invalidates index-bound nodes.
+        // Query the exact state text afresh instead of reading every AX value.
+        let states = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "density="))
+        for state in states.allElementsBoundByAccessibilityElement {
+            guard state.exists else { continue }
             let observed = [state.label, state.value as? String ?? ""]
             if let text = observed.first(where: { $0.contains("density=") }) {
                 return text

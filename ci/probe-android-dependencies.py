@@ -17,7 +17,13 @@ def fetch(url, limit):
     for attempt in range(1, 4):
         print(f'Android coordinate attempt={attempt}/3 url={url}', flush=True)
         try:
-            with urllib.request.urlopen(url, timeout=30) as response:
+            # A cached negative lookup on Maven's CDN must not make a valid pin
+            # look unpublished. Retry the same immutable coordinate through a
+            # fresh cache key; record the requested URL for diagnosis.
+            requested_url = url if attempt == 1 else f'{url}?shell-probe={time.time_ns()}'
+            print(f'Android coordinate request={requested_url}', flush=True)
+            request = urllib.request.Request(requested_url, headers={'Cache-Control': 'no-cache'})
+            with urllib.request.urlopen(request, timeout=30) as response:
                 return response.read(limit)
         except (OSError, urllib.error.HTTPError) as error:
             print(f'Android coordinate failure url={url}: {error}', flush=True)

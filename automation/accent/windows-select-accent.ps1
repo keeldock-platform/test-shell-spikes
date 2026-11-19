@@ -21,12 +21,13 @@ while ((Get-Date) -lt $deadline -and $null -eq $target) {
     $settings = Get-Process -Name SystemSettings -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($settings) {
         try {
+            Write-Output ("Settings window probe: " + (@{ pid=$settings.Id; handle=$settings.MainWindowHandle.ToInt64(); title=$settings.MainWindowTitle; session=$settings.SessionId } | ConvertTo-Json -Compress))
             $window = [ScopedUia]::WindowForPid($settings.Id)
             if ($window) {
                 $nodes = [ScopedUia]::Walk($window, 18, 1500)
                 $observed = @($nodes | ForEach-Object {
                     $info = [ScopedUia]::Info($_)
-                    [pscustomobject]@{ name=$info.Name; role=$info.ControlType.ProgrammaticName; id=$info.AutomationId }
+                    [pscustomobject]@{ name=$info.Name; role=$info.ControlType.ProgrammaticName; id=$info.AutomationId; class=$info.ClassName; help=([ScopedUia]::Help($_)) }
                     if ($info.Name -eq $AccentName -and $info.ControlType -in @(
                         [System.Windows.Automation.ControlType]::RadioButton,
                         [System.Windows.Automation.ControlType]::Button)) { $script:target = $_ }
