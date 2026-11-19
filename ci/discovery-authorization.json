@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "decision": "Coordinator A5 under the owner's standing authorisation of 2026-11-19 (\"from now on you can Authorise the spikes\"): discovery run 15; run 14 was dispatched with a mistyped SHA; fix 18 untested; attempt 1 only",
+  "decision": "Coordinator A5 under the owner's standing authorisation of 2026-11-19 (\"from now on you can Authorise the spikes\"): discovery run 16; run 15 failed at chmod after chown in the media installer; fixed in 919bd0b; attempt 1 only",
   "ref": "refs/heads/shell-spikes/integration-1118",
   "runNumbers": [
     1,
@@ -17,7 +17,8 @@
     12,
     13,
     14,
-    15
+    15,
+    16
   ],
   "runAttempt": 1,
   "installation": "official stable channels for other platforms; Android uses bundled WebView from official sdkmanager image (decision C, 2026-11-19)",
