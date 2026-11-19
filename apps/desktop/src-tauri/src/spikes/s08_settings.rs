@@ -9,7 +9,9 @@ use tauri::{
     plugin::{Builder as PluginBuilder, TauriPlugin},
 };
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
-use tauri_plugin_window_state::{AppHandleExt as WindowStateAppHandleExt, Builder as WindowStateBuilder, StateFlags};
+use tauri_plugin_window_state::{
+    AppHandleExt as WindowStateAppHandleExt, Builder as WindowStateBuilder, StateFlags,
+};
 
 pub const SETTINGS_LABEL: &str = "settings";
 pub const MAIN_LABEL: &str = "main";
@@ -225,7 +227,10 @@ fn mock_lock(state: &S08HostState) -> Result<std::sync::MutexGuard<'_, MockSetti
 }
 
 fn open_lock(state: &S08HostState) -> Result<std::sync::MutexGuard<'_, ()>, S08Error> {
-    state.open_gate.lock().map_err(|_| S08Error::StateUnavailable)
+    state
+        .open_gate
+        .lock()
+        .map_err(|_| S08Error::StateUnavailable)
 }
 
 /// Open once from the main window. The caller's label is checked in Rust even
@@ -307,7 +312,10 @@ pub async fn s08_write_setting(
 #[tauri::command]
 pub async fn s08_settings_schema(window: WebviewWindow) -> Result<Vec<&'static str>, S08Error> {
     require_command(&window, "s08_settings_schema")?;
-    Ok(vec!["theme:system|light|dark", "density:comfortable|compact"])
+    Ok(vec![
+        "theme:system|light|dark",
+        "density:comfortable|compact",
+    ])
 }
 
 #[tauri::command]
@@ -320,10 +328,16 @@ pub async fn s08_settings_search(
         return Err(S08Error::InvalidInput);
     }
     let query = query.to_lowercase();
-    Ok(["General", "Appearance", "Security", "Data and storage", "Team"]
-        .into_iter()
-        .filter(|page| page.to_lowercase().contains(&query))
-        .collect())
+    Ok([
+        "General",
+        "Appearance",
+        "Security",
+        "Data and storage",
+        "Team",
+    ]
+    .into_iter()
+    .filter(|page| page.to_lowercase().contains(&query))
+    .collect())
 }
 
 #[tauri::command]
@@ -340,10 +354,7 @@ pub async fn s08_update_shortcut(
 }
 
 #[tauri::command]
-pub async fn s08_request_step_up(
-    app: AppHandle,
-    window: WebviewWindow,
-) -> Result<(), S08Error> {
+pub async fn s08_request_step_up(app: AppHandle, window: WebviewWindow) -> Result<(), S08Error> {
     require_command(&window, "s08_request_step_up")?;
     let result_app = app.clone();
     app.dialog()
@@ -360,7 +371,12 @@ pub async fn s08_request_step_up(
     Ok(())
 }
 
-fn open_native_import_picker(app: &AppHandle, window: &WebviewWindow, event: &'static str, label: &'static str) {
+fn open_native_import_picker(
+    app: &AppHandle,
+    window: &WebviewWindow,
+    event: &'static str,
+    label: &'static str,
+) {
     let result_app = app.clone();
     app.dialog()
         .file()
@@ -372,12 +388,14 @@ fn open_native_import_picker(app: &AppHandle, window: &WebviewWindow, event: &'s
 }
 
 #[tauri::command]
-pub async fn s08_import_license(
-    app: AppHandle,
-    window: WebviewWindow,
-) -> Result<(), S08Error> {
+pub async fn s08_import_license(app: AppHandle, window: WebviewWindow) -> Result<(), S08Error> {
     require_command(&window, "s08_import_license")?;
-    open_native_import_picker(&app, &window, "s08:license-picker-result", "Synthetic licence");
+    open_native_import_picker(
+        &app,
+        &window,
+        "s08:license-picker-result",
+        "Synthetic licence",
+    );
     Ok(())
 }
 
@@ -390,7 +408,11 @@ pub async fn s08_export_data(app: AppHandle, window: WebviewWindow) -> Result<()
         .set_file_name("s08-sample-export.json")
         .set_parent(&window)
         .save_file(move |selection| {
-            let _ = result_app.emit_to(SETTINGS_LABEL, "s08:export-picker-result", selection.is_some());
+            let _ = result_app.emit_to(
+                SETTINGS_LABEL,
+                "s08:export-picker-result",
+                selection.is_some(),
+            );
         });
     Ok(())
 }
@@ -443,7 +465,13 @@ pub async fn s08_set_view_state(
     scroll_top: u32,
 ) -> Result<(), S08Error> {
     require_command(&window, "s08_set_view_state")?;
-    const PAGES: &[&str] = &["General", "Appearance", "Security", "Data and storage", "Team"];
+    const PAGES: &[&str] = &[
+        "General",
+        "Appearance",
+        "Security",
+        "Data and storage",
+        "Team",
+    ];
     if !PAGES.contains(&page.as_str()) || scroll_top > 100_000 {
         return Err(S08Error::InvalidInput);
     }
@@ -559,10 +587,14 @@ pub fn on_window_event(window: &WebviewWindow, event: &WindowEvent) {
             let _ = window.hide();
         }
         WindowEvent::Focused(true) if window.label() == SETTINGS_LABEL => {
-            let _ = window.app_handle().emit_to(MAIN_LABEL, "s08:window-activity", false);
+            let _ = window
+                .app_handle()
+                .emit_to(MAIN_LABEL, "s08:window-activity", false);
         }
         WindowEvent::Focused(true) if window.label() == MAIN_LABEL => {
-            let _ = window.app_handle().emit_to(MAIN_LABEL, "s08:window-activity", true);
+            let _ = window
+                .app_handle()
+                .emit_to(MAIN_LABEL, "s08:window-activity", true);
         }
         _ => {}
     }
@@ -571,8 +603,7 @@ pub fn on_window_event(window: &WebviewWindow, event: &WindowEvent) {
 #[cfg(test)]
 mod tests {
     use super::{
-        host_allows, DENIED_SENTINELS, MAIN_COMMANDS, MAIN_LABEL, SETTINGS_COMMANDS,
-        SETTINGS_LABEL,
+        DENIED_SENTINELS, MAIN_COMMANDS, MAIN_LABEL, SETTINGS_COMMANDS, SETTINGS_LABEL, host_allows,
     };
 
     #[test]

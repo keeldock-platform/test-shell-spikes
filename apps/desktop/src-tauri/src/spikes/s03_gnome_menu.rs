@@ -79,9 +79,15 @@ impl HeaderRegions {
             return Err("header bounds must be finite and non-empty".into());
         }
         if self.blockers.len() > 16 || self.blockers.iter().any(|rect| !rect.is_valid()) {
-            return Err("header blockers must contain at most 16 finite, non-empty rectangles".into());
+            return Err(
+                "header blockers must contain at most 16 finite, non-empty rectangles".into(),
+            );
         }
-        if self.blockers.iter().any(|rect| !self.header.contains_rect(*rect)) {
+        if self
+            .blockers
+            .iter()
+            .any(|rect| !self.header.contains_rect(*rect))
+        {
             return Err("header blockers must be inside the header bounds".into());
         }
         // GDK event coordinates and WebKit CSS pixels are expected to be
@@ -169,7 +175,9 @@ fn fallback_window_state(
     let window = main_window(&app)?;
     Ok(FallbackWindowState {
         maximized: window.is_maximized().map_err(|error| error.to_string())?,
-        always_on_top: window.is_always_on_top().map_err(|error| error.to_string())?,
+        always_on_top: window
+            .is_always_on_top()
+            .map_err(|error| error.to_string())?,
         all_workspaces: state.0.fallback_all_workspaces.load(Ordering::Relaxed),
         // Tauri has no Linux resize-drag operation that can preserve this
         // menu click's GDK event and its Wayland serial.
@@ -198,7 +206,9 @@ fn perform_fallback_action(
             return Err("Resize is unavailable in the S03 kit-menu fallback.".into());
         }
         "alwaysOnTop" => {
-            let next = !window.is_always_on_top().map_err(|error| error.to_string())?;
+            let next = !window
+                .is_always_on_top()
+                .map_err(|error| error.to_string())?;
             window.set_always_on_top(next)
         }
         "allWorkspaces" => {
@@ -206,7 +216,10 @@ fn perform_fallback_action(
             window
                 .set_visible_on_all_workspaces(next)
                 .map_err(|error| error.to_string())?;
-            state.0.fallback_all_workspaces.store(next, Ordering::Relaxed);
+            state
+                .0
+                .fallback_all_workspaces
+                .store(next, Ordering::Relaxed);
             Ok(())
         }
         "close" => window.close(),
@@ -223,9 +236,7 @@ fn main_window(app: &AppHandle<Wry>) -> Result<WebviewWindow<Wry>, String> {
 #[cfg(target_os = "linux")]
 mod linux {
     use super::*;
-    use std::{
-        ffi::{c_char, c_int, c_ulong, c_void, CStr},
-    };
+    use std::ffi::{CStr, c_char, c_int, c_ulong, c_void};
 
     #[repr(C)]
     struct GtkWidget {
@@ -318,10 +329,7 @@ mod linux {
                 return;
             }
 
-            let context = Box::new(HookContext {
-                state,
-                window,
-            });
+            let context = Box::new(HookContext { state, window });
             let context_ptr = Box::into_raw(context).cast::<c_void>();
             let signal = unsafe { CStr::from_bytes_with_nul_unchecked(b"button-press-event\0") };
             let callback = unsafe {
@@ -449,9 +457,7 @@ mod linux {
     fn record_native_request(window: &WebviewWindow<Wry>, x: f64, y: f64, accepted: bool) {
         let script = format!(
             "window.s03?.recordNativeRequest({{x:{:.3},y:{:.3},apiAccepted:{}}})",
-            x,
-            y,
-            accepted
+            x, y, accepted
         );
         let _ = window.eval(script);
     }

@@ -7,12 +7,10 @@ use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
 use objc2_app_kit::{NSColor, NSColorSpace, NSSystemColorsDidChangeNotification};
 use objc2_core_foundation::CGFloat;
-use objc2_foundation::{
-    NSNotification, NSNotificationCenter, NSOperationQueue, NSObjectProtocol,
-};
+use objc2_foundation::{NSNotification, NSNotificationCenter, NSObjectProtocol, NSOperationQueue};
 use tauri::{AppHandle, Wry};
 
-use super::{monotonic_ns, publish_update, EventSender, NativeUpdate, Snapshot};
+use super::{EventSender, NativeUpdate, Snapshot, monotonic_ns, publish_update};
 
 thread_local! {
     static OBSERVER: RefCell<Option<Retained<ProtocolObject<dyn NSObjectProtocol>>>> = const {

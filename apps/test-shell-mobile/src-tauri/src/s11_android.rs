@@ -18,9 +18,7 @@ struct AccentSnapshot {
 }
 
 #[tauri::command]
-async fn current_accent(
-    handle: State<'_, AndroidAccentHandle>,
-) -> Result<AccentSnapshot, String> {
+async fn current_accent(handle: State<'_, AndroidAccentHandle>) -> Result<AccentSnapshot, String> {
     handle
         .0
         .run_mobile_plugin("currentAccent", ())
@@ -31,10 +29,8 @@ pub fn plugin() -> TauriPlugin<Wry> {
     Builder::new("s11-accent")
         .invoke_handler(tauri::generate_handler![current_accent])
         .setup(|app, api| {
-            let handle = api.register_android_plugin(
-                "org.example.shellspikes.accent",
-                "S11AccentPlugin",
-            )?;
+            let handle =
+                api.register_android_plugin("org.example.shellspikes.accent", "S11AccentPlugin")?;
             let _ = app.manage(AndroidAccentHandle(handle));
             Ok(())
         })

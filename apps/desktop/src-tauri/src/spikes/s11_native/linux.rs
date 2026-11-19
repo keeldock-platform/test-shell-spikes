@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use ashpd::desktop::settings::Settings;
 use futures_util::StreamExt;
 
-use super::{send_update, EventSender, Snapshot};
+use super::{EventSender, Snapshot, send_update};
 
 const NAMESPACE: &str = "org.freedesktop.appearance";
 const KEY: &str = "accent-color";
@@ -32,7 +32,10 @@ pub(super) async fn subscribe(sender: EventSender) -> Snapshot {
     let raw = match settings.read::<(f64, f64, f64)>(NAMESPACE, KEY).await {
         Ok(value) => value,
         Err(_) => {
-            return Snapshot::unavailable_with_portal_version("portal-read-failed", interface_version);
+            return Snapshot::unavailable_with_portal_version(
+                "portal-read-failed",
+                interface_version,
+            );
         }
     };
     let initial = match Snapshot::from_portal(raw, interface_version) {
@@ -45,22 +48,17 @@ pub(super) async fn subscribe(sender: EventSender) -> Snapshot {
         while let Some(change) = changes.next().await {
             let sequence = SEQUENCE.fetch_add(1, Ordering::Relaxed).saturating_add(1);
             let snapshot = match change {
-                Ok(value) => Snapshot::from_portal(value, interface_version)
-                    .unwrap_or_else(|reason| {
+                Ok(value) => {
+                    Snapshot::from_portal(value, interface_version).unwrap_or_else(|reason| {
                         Snapshot::unavailable_with_portal_version(reason, interface_version)
-                    }),
+                    })
+                }
                 Err(_) => Snapshot::unavailable_with_portal_version(
                     "malformed-portal-colour",
                     interface_version,
                 ),
             };
-            send_update(
-                &sender,
-                sequence,
-                snapshot,
-                true,
-                "portal-setting-changed",
-            );
+            send_update(&sender, sequence, snapshot, true, "portal-setting-changed");
         }
 
         let sequence = SEQUENCE.fetch_add(1, Ordering::Relaxed).saturating_add(1);

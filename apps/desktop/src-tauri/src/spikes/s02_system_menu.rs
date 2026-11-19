@@ -15,9 +15,8 @@ use std::sync::{
 };
 
 use tauri::{
-    Emitter, Manager, RunEvent,
+    Emitter, Manager, RunEvent, WindowEvent, Wry,
     plugin::{Builder as PluginBuilder, TauriPlugin},
-    Wry, WindowEvent,
 };
 
 const PLUGIN_NAME: &str = "s02-system-menu";
@@ -60,7 +59,9 @@ struct HitTestRect {
 
 impl HitTestRect {
     fn is_valid(self) -> bool {
-        [self.x, self.y, self.width, self.height].into_iter().all(f64::is_finite)
+        [self.x, self.y, self.width, self.height]
+            .into_iter()
+            .all(f64::is_finite)
             && self.x >= 0.0
             && self.y >= 0.0
             && self.width > 0.0
@@ -103,8 +104,7 @@ pub fn plugin() -> TauriPlugin<Wry> {
                     .set_title("S02 System Menu Spike")
                     .map_err(|error| std::io::Error::other(error.to_string()))?;
                 let hwnd = hwnd_for(&window).map_err(std::io::Error::other)?;
-                native::install_window_subclass(hwnd, state)
-                    .map_err(std::io::Error::other)?;
+                native::install_window_subclass(hwnd, state).map_err(std::io::Error::other)?;
                 install_accelerator_hook(app, &window).map_err(std::io::Error::other)?;
             }
             Ok(())
@@ -286,10 +286,7 @@ pub fn show_system_menu(
 }
 
 /// Dispatches one allow-listed system command, used by the kit-menu fallback.
-pub fn dispatch_system_command(
-    hwnd: isize,
-    command: SystemCommand,
-) -> Result<(), SystemMenuError> {
+pub fn dispatch_system_command(hwnd: isize, command: SystemCommand) -> Result<(), SystemMenuError> {
     #[cfg(windows)]
     {
         native::dispatch_system_command(hwnd, command)
@@ -380,9 +377,16 @@ fn s02_set_hit_test_regions(
         || !scale.is_finite()
         || !(0.5..=4.0).contains(&scale)
     {
-        return Err("S02 hit-test geometry must be finite, non-empty, and within the supported scale".into());
+        return Err(
+            "S02 hit-test geometry must be finite, non-empty, and within the supported scale"
+                .into(),
+        );
     }
-    let regions = HitTestRegions { empty_chrome, maximize_button, scale };
+    let regions = HitTestRegions {
+        empty_chrome,
+        maximize_button,
+        scale,
+    };
     *state
         .regions
         .lock()
@@ -432,10 +436,7 @@ pub fn s02_dispatch_system_command(
 }
 
 #[tauri::command]
-pub fn s02_set_window_state(
-    window: tauri::WebviewWindow,
-    state: String,
-) -> Result<(), String> {
+pub fn s02_set_window_state(window: tauri::WebviewWindow, state: String) -> Result<(), String> {
     let command = match state.as_str() {
         "normal" => SystemCommand::Restore,
         "maximized" => SystemCommand::Maximize,
@@ -453,9 +454,7 @@ pub fn s02_close_after_guard(window: tauri::WebviewWindow) -> Result<(), String>
 }
 
 #[tauri::command]
-pub fn s02_get_window_menu_state(
-    window: tauri::WebviewWindow,
-) -> Result<WindowMenuState, String> {
+pub fn s02_get_window_menu_state(window: tauri::WebviewWindow) -> Result<WindowMenuState, String> {
     #[cfg(windows)]
     {
         native::window_menu_state(hwnd_for(&window)?).map_err(|error| error.to_string())
@@ -484,9 +483,8 @@ fn hwnd_for(_window: &tauri::WebviewWindow) -> Result<isize, String> {
 #[allow(unsafe_code)]
 mod native {
     use super::{
-        HitTestRegions, MenuAnchor, S02State, SystemCommand, SystemMenuError, WindowMenuState,
-        SC_CLOSE, SC_MAXIMIZE, SC_MINIMIZE, SC_MOVE, SC_RESTORE, SC_SIZE, HTCAPTION,
-        HTMAXBUTTON,
+        HTCAPTION, HTMAXBUTTON, HitTestRegions, MenuAnchor, S02State, SC_CLOSE, SC_MAXIMIZE,
+        SC_MINIMIZE, SC_MOVE, SC_RESTORE, SC_SIZE, SystemCommand, SystemMenuError, WindowMenuState,
     };
     use std::ffi::c_void;
 
@@ -515,9 +513,8 @@ mod native {
         state: S02State,
     }
 
-    type SubclassProc = Option<
-        unsafe extern "system" fn(Hwnd, u32, usize, isize, usize, usize) -> isize,
-    >;
+    type SubclassProc =
+        Option<unsafe extern "system" fn(Hwnd, u32, usize, isize, usize, usize) -> isize>;
 
     #[repr(C)]
     struct Rect {
@@ -581,7 +578,12 @@ mod native {
         // SAFETY: The context is reclaimed on WM_NCDESTROY. The callback only
         // handles this live main window and otherwise delegates to its chain.
         let installed = unsafe {
-            SetWindowSubclass(hwnd, Some(system_menu_subclass_proc), SUBCLASS_ID, reference_data)
+            SetWindowSubclass(
+                hwnd,
+                Some(system_menu_subclass_proc),
+                SUBCLASS_ID,
+                reference_data,
+            )
         };
         if installed == 0 {
             // SAFETY: SetWindowSubclass failed, so ownership was not transferred.
@@ -610,10 +612,16 @@ mod native {
             let context = unsafe { &*(reference_data as *const HookContext) };
             if let Some(regions) = read_regions(&context.state) {
                 if let Some((x, y)) = client_point(hwnd, lparam) {
-                    if regions.maximize_button.contains(x / regions.scale, y / regions.scale) {
+                    if regions
+                        .maximize_button
+                        .contains(x / regions.scale, y / regions.scale)
+                    {
                         return HTMAXBUTTON;
                     }
-                    if regions.empty_chrome.contains(x / regions.scale, y / regions.scale) {
+                    if regions
+                        .empty_chrome
+                        .contains(x / regions.scale, y / regions.scale)
+                    {
                         if context.state.kit_mode.load(Ordering::Acquire) {
                             return HTCLIENT;
                         }
@@ -739,9 +747,7 @@ mod native {
         post_system_command(hwnd, command)
     }
 
-    pub(super) fn window_menu_state(
-        raw_hwnd: isize,
-    ) -> Result<WindowMenuState, SystemMenuError> {
+    pub(super) fn window_menu_state(raw_hwnd: isize) -> Result<WindowMenuState, SystemMenuError> {
         let hwnd = as_hwnd(raw_hwnd)?;
         // SAFETY: `hwnd` was checked by `as_hwnd`; these functions only query
         // state owned by the window manager.
@@ -779,11 +785,7 @@ mod native {
     }
 
     fn set_enabled(menu: Hmenu, command: u32, enabled: bool) -> Result<(), SystemMenuError> {
-        let state = if enabled {
-            MF_ENABLED
-        } else {
-            MF_GRAYED
-        };
+        let state = if enabled { MF_ENABLED } else { MF_GRAYED };
         // SAFETY: The menu is a live handle returned by GetSystemMenu for the
         // validated owner window. Command ids are the documented SC_* ids.
         let previous = unsafe { EnableMenuItem(menu, command, MF_BYCOMMAND | state) };
@@ -840,4 +842,3 @@ mod native {
         Ok(hwnd)
     }
 }
-

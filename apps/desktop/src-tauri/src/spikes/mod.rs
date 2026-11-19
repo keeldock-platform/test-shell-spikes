@@ -35,7 +35,9 @@ pub fn validate_selection() -> Result<(), String> {
         Some("s08") if cfg!(feature = "spike-s08") => Ok(()),
         Some("s10") if cfg!(feature = "spike-s10") => Ok(()),
         Some("s11") if cfg!(feature = "spike-s11") => Ok(()),
-        Some(id) => Err(format!("SHELL_SPIKE_ID {id:?} is not enabled in this build")),
+        Some(id) => Err(format!(
+            "SHELL_SPIKE_ID {id:?} is not enabled in this build"
+        )),
     }
 }
 

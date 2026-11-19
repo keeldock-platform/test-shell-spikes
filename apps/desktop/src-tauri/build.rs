@@ -46,8 +46,7 @@ fn main() {
         )
         .plugin(
             "s08-settings",
-            tauri_build::InlinedPlugin::new()
-                .permissions_path_pattern("permissions/s08.toml"),
+            tauri_build::InlinedPlugin::new().permissions_path_pattern("permissions/s08.toml"),
         )
         .plugin("s10-colour-input", tauri_build::InlinedPlugin::new())
         .plugin(

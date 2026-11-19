@@ -1,12 +1,12 @@
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use windows::Foundation::TypedEventHandler;
-use windows::core::IInspectable;
-use windows::UI::ViewManagement::{UIColorType, UISettings};
 use tauri::{AppHandle, Wry};
+use windows::Foundation::TypedEventHandler;
+use windows::UI::ViewManagement::{UIColorType, UISettings};
+use windows::core::IInspectable;
 
-use super::{monotonic_ns, publish_update, EventSender, NativeUpdate, Snapshot};
+use super::{EventSender, NativeUpdate, Snapshot, monotonic_ns, publish_update};
 
 static REGISTRATION: OnceLock<(UISettings, i64)> = OnceLock::new();
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
