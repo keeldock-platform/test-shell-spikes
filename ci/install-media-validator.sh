@@ -11,6 +11,11 @@ media_apt="$(mktemp -d)"
 trap 'sudo rm -rf "$media_apt"' EXIT
 chmod 755 "$media_apt"
 mkdir -p "$media_apt/lists/partial"
+# apt drops download privileges to _apt; traversal alone does not grant write
+# access. Keep downloads separate from the authenticated metadata and sources.
+mkdir "$media_apt/downloads"
+sudo chown _apt:root "$media_apt/downloads"
+chmod 755 "$media_apt/downloads"
 for suite in noble noble-updates noble-security; do
   printf 'deb [signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] http://archive.ubuntu.com/ubuntu/ %s main universe\n' "$suite"
 done > "$media_apt/sources.list"
@@ -20,12 +25,21 @@ cat "$media_apt/sources.list"
 echo "Media validator package: ffmpeg=$media_version SHA256=$media_sha256"
 sudo timeout --kill-after=10 180 apt-get "${options[@]}" update --error-on=any
 (
-  cd "$media_apt"
+  cd "$media_apt/downloads"
   sudo timeout --kill-after=10 180 apt-get "${options[@]}" download "ffmpeg=$media_version"
-  printf '%s  %s\n' "$media_sha256" ffmpeg_6.1.1-3ubuntu5_amd64.deb | sha256sum --check --strict
 )
+# apt includes and percent-encodes the epoch in its local filename. Select its
+# actual output, refusing missing or ambiguous downloads before hashing/install.
+shopt -s nullglob
+media_archives=("$media_apt/downloads"/ffmpeg_*_amd64.deb)
+[[ "${#media_archives[@]}" == 1 && -f "${media_archives[0]}" ]] || {
+  echo "Expected exactly one downloaded ffmpeg_*_amd64.deb" >&2
+  exit 1
+}
+media_archive="${media_archives[0]}"
+printf '%s  %s\n' "$media_sha256" "$media_archive" | sha256sum --check --strict
 sudo env DEBIAN_FRONTEND=noninteractive timeout --kill-after=10 180 apt-get "${options[@]}" install \
-  --yes --no-install-recommends --reinstall --allow-downgrades "$media_apt/ffmpeg_6.1.1-3ubuntu5_amd64.deb"
+  --yes --no-install-recommends --reinstall --allow-downgrades "$media_archive"
 [[ "$(dpkg-query -W -f='${Version}' ffmpeg)" == "$media_version" ]]
 [[ -z "$(dpkg --verify ffmpeg)" ]]
 # A stale PATH shim must not silently replace the verified package executables.

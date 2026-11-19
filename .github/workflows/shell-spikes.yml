@@ -50,6 +50,8 @@ jobs:
           python-version: 3.14.10
       - name: Check frozen environment inputs
         run: python ci/check-frozen-inputs.py
+      - name: Replay pre-gate provisioning with fake tools
+        run: python ci/tests/test_round18.py
       - name: Install the exact JavaScript graph
         run: npm ci --ignore-scripts
       - name: Check public source and lane integration
@@ -471,6 +473,8 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: 3.14.10
+      - name: Replay pre-gate provisioning with fake tools
+        run: python ci/tests/test_round18.py
       - name: Install media evidence validator
         run: bash ci/install-media-validator.sh
       - name: Download all one-wave evidence

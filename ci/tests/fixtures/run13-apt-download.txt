@@ -1,0 +1,3 @@
+Get:1 http://archive.ubuntu.com/ubuntu noble/universe amd64 ffmpeg amd64 7:6.1.1-3ubuntu5 [1879 kB]
+W: Download is performed unsandboxed as root as file '/tmp/tmp.bznspnyEZs/ffmpeg_7%3a6.1.1-3ubuntu5_amd64.deb' couldn't be accessed by user '_apt'. - pkgAcquire::Run (13: Permission denied)
+Fetched 1879 kB in 0s (56.8 MB/s)
