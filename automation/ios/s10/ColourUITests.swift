@@ -169,8 +169,27 @@ final class ColourUITests: XCTestCase {
     private func selectScenario(_ app: XCUIApplication, spike: String, caseId: String) -> Bool {
         let caseField = app.textFields["Synthetic case ID"]
         guard caseField.waitForExistence(timeout: 20) else { return false }
+        if !caseField.isHittable { app.swipeDown() }
+        guard caseField.isHittable else { return false }
         caseField.tap()
-        caseField.clearAndEnterText(caseId)
+        let keyboard = app.keyboards.firstMatch
+        if !keyboard.waitForExistence(timeout: 5) {
+            caseField.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+        let keyboardReady = keyboard.waitForExistence(timeout: 5)
+        let focusProbe = XCTAttachment(string: app.debugDescription)
+        focusProbe.name = "scenario-keyboard-focus"
+        focusProbe.lifetime = .keepAlways
+        add(focusProbe)
+        guard keyboardReady else {
+            XCTFail("Synthetic case ID did not acquire a software keyboard after native taps")
+            return false
+        }
+        caseField.clearAndEnterText(caseId, focus: false)
+        guard caseField.value as? String == caseId else {
+            XCTFail("Synthetic case ID did not retain the entered scenario")
+            return false
+        }
         for label in ["Return", "Go", "Done"] {
             let returnKey = app.keyboards.buttons[label]
             if returnKey.exists { returnKey.tap(); break }
@@ -185,8 +204,8 @@ final class ColourUITests: XCTestCase {
 }
 
 private extension XCUIElement {
-    func clearAndEnterText(_ text: String) {
-        tap()
+    func clearAndEnterText(_ text: String, focus: Bool = true) {
+        if focus { tap() }
         if let current = value as? String, !current.isEmpty {
             typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count))
         }

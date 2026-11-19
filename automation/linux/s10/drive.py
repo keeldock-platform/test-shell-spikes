@@ -73,10 +73,15 @@ def label(node):
         return ""
 
 
-def walk(node):
+def walk(node, depth=0, budget=None):
+    if budget is None:
+        budget = [3000]
+    if depth > 30 or budget[0] <= 0:
+        return
+    budget[0] -= 1
     yield node
     for child in children(node):
-        yield from walk(child)
+        yield from walk(child, depth + 1, budget)
 
 
 def find(text, scope=desktop):
@@ -131,15 +136,72 @@ def editable(node):
         return False
 
 
+def native_dialogs():
+    roots = []
+    for application in children(all_desktop):
+        for node in walk(application):
+            role = node.getRoleName().casefold()
+            name = (node.name or "").casefold()
+            if ((role in {"dialog", "color chooser", "colour chooser"} and name != "appearance colour")
+                    or (role == "frame" and any(token in name for token in ("select a color", "choose a color", "colors", "colours")))):
+                roots.append(node)
+    return roots
+
+
+def native_nodes():
+    return [node for root in native_dialogs() for node in walk(root)]
+
+
+def field_label(node):
+    labels = [node.name or ""]
+    try:
+        for relation in node.getRelationSet():
+            if relation.getRelationType() == pyatspi.RELATION_LABELLED_BY:
+                labels += [relation.getTarget(i).name or "" for i in range(relation.getNTargets())]
+    except Exception:
+        pass
+    return " ".join(labels).casefold()
+
+
 def type_native_colour(value):
-    fields = [node for node in walk(desktop) if editable(node) and
-              any(token in (node.name or "").casefold() for token in ("html", "color name", "colour name", "hexadecimal"))]
+    deadline = time.monotonic() + 8
+    fields = []
+    expanded = False
+    while time.monotonic() < deadline:
+        nodes = native_nodes()
+        fields = [node for node in nodes if editable(node) and
+                  any(token in field_label(node) for token in ("html", "color name", "colour name", "hex"))]
+        if fields:
+            break
+        if not expanded:
+            custom = next((node for node in nodes if any(token in field_label(node)
+                           for token in ("add custom", "custom color", "custom colour", "color editor", "edit color", "edit colour"))
+                           and "button" in node.getRoleName()), None)
+            if custom is None:
+                custom = next((node for node in nodes if field_label(node).strip() in {"custom", "customize", "+"}
+                               and "button" in node.getRoleName()), None)
+            if custom is not None:
+                expanded = press(custom)
+        time.sleep(0.1)
+    rows = [{"label": label(node), "fieldLabel": field_label(node), "editable": editable(node)}
+            for node in native_nodes()]
+    (recorder / "native-picker-fields.json").write_text(json.dumps(rows, indent=2) + "\n")
+    log("native-picker-field-probe", nativeDialogs=len(native_dialogs()), fields=len(fields), expanded=expanded)
     if not fields:
         return False
     try:
-        fields[0].queryComponent().grabFocus()
+        if not fields[0].queryComponent().grabFocus():
+            return False
         replace_focused_text(value)
-        input_key("Return")
+        actual = fields[0].queryText().getText(0, -1)
+        log("native-picker-field-readback", requested=value, actual=actual, label=field_label(fields[0]))
+        if actual.strip().casefold().lstrip("#") != value.casefold().lstrip("#"):
+            return False
+        # GTK's chooser needs Select/OK to commit; Return can leave the editor open.
+        accept = next((node for node in native_nodes() if (node.name or "").strip().casefold()
+                       in {"select", "ok", "choose"} and "button" in node.getRoleName()), None)
+        if accept is None or not press(accept):
+            input_key("Return")
         log("native-picker-value-entry", value=value, session="wayland" if is_wayland else "x11")
         return True
     except (AttributeError, OSError, subprocess.SubprocessError, ValueError):
@@ -186,7 +248,7 @@ if ready:
         picker_visible = press(picker)
         log("native-picker-open", observed=picker_visible)
         time.sleep(1)
-        tree = snapshot()
+        tree = [label(node) for node in native_nodes()]
         (recorder / "native-tree-picker.txt").write_text("\n".join(tree) + "\n", encoding="utf-8")
         subprocess.run(["gnome-screenshot", "-f", str(recorder / "screen.png")], check=False, timeout=15)
         for index, value in enumerate(("#7C4DFF", "#28A77A")):
@@ -196,10 +258,12 @@ if ready:
                     press(colour_control)
                     time.sleep(0.5)
             if type_native_colour(value):
-                time.sleep(0.5)
-                page_now = "\n".join(snapshot()).casefold()
-                if "native-change" in page_now and value.lower() in page_now:
-                    accepted_values.append(value.lower())
+                return_deadline = time.monotonic() + 5
+                while time.monotonic() < return_deadline:
+                    if any("native-change" in row.casefold() and value.lower() in row.casefold() for row in snapshot()):
+                        accepted_values.append(value.lower())
+                        break
+                    time.sleep(0.1)
         focus_returned = find("Custom colour picker") is not None
         log("picker-focus-return", observed=focus_returned)
 
@@ -265,7 +329,7 @@ for item in json.loads(Path("cases/s10.json").read_text(encoding="utf-8"))["case
         if suffix == "NATIVE-PICKER" and ready and picker_visible:
             verdict = "PASS" if len(accepted_values) == 2 else "FAIL"
             actual = f"Native picker visible; native hex entry returned {accepted_values}."
-            evidence_paths = ["recorder/native-tree-picker.txt", "recorder/native-events.jsonl", video_ref]
+            evidence_paths = ["recorder/native-tree-picker.txt", "recorder/native-picker-fields.json", "recorder/native-events.jsonl", video_ref]
         elif suffix == "ACCEPT-FOCUS" and len(accepted_values) == 2 and focus_returned:
             verdict = "PASS"
             actual = f"Native picker returned {accepted_values} and focus returned to the webview."

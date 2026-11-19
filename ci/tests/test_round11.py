@@ -25,7 +25,7 @@ class ProvisioningTests(unittest.TestCase):
         env = dict(GITHUB_ACTIONS='true', GITHUB_REF='refs/heads/shell-spikes/integration-1118',
                    GITHUB_REF_TYPE='branch', GITHUB_RUN_NUMBER='7', GITHUB_RUN_ATTEMPT='1')
         self.assertEqual(discovery_authorization_errors(policy, env), [])
-        for override in ({'GITHUB_RUN_NUMBER': '8'}, {'GITHUB_RUN_ATTEMPT': '2'}):
+        for override in ({'GITHUB_RUN_NUMBER': str(max(json.loads((ROOT / 'ci/discovery-authorization.json').read_text())['runNumbers']) + 1)}, {'GITHUB_RUN_ATTEMPT': '2'}):
             self.assertTrue(discovery_authorization_errors(policy, {**env, **override}))
 
     def test_avd_created_noninteractively_before_boot_for_every_api(self):
@@ -87,25 +87,24 @@ class ProvisioningTests(unittest.TestCase):
                 self.assertEqual('fallback' in result.stdout, status == 78)
 
     def test_apt_rewrites_hosted_mirror_lists(self):
-        source = (ROOT / 'ci/apt-host.sh').read_text().split("<<'PY'\n", 1)[1].split('\nPY', 1)[0]
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             (base / 'sources.list.d').mkdir()
             sources = base / 'sources.list.d/ubuntu.sources'
             sources.write_text('URIs: mirror+file:/etc/apt/apt-mirrors.txt\nURIs: mirror+file:/etc/apt/apt-security-mirrors.txt\nURIs: http://us-east-2.ec2.archive.ubuntu.com/ubuntu\n')
-            with patch('pathlib.Path', side_effect=lambda name: base / str(name).removeprefix('/etc/apt/')), contextlib.redirect_stdout(io.StringIO()):
-                exec(source, {})
+            result = subprocess.run(['bash', str(ROOT / 'ci/apt-mirror.sh'), '0', str(base)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
             updated = sources.read_text()
             self.assertNotIn('mirror+file:', updated)
             self.assertNotIn('ec2.archive', updated)
             self.assertIn('https://archive.ubuntu.com/ubuntu/', updated)
-            self.assertIn('https://security.ubuntu.com/ubuntu/', updated)
+            self.assertEqual(updated.count('https://archive.ubuntu.com/ubuntu/'), 3)
 
     def test_apt_retries_are_bounded_and_preserve_failure(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             sudo = base / 'sudo'
-            sudo.write_text('#!/bin/bash\nif [[ "$1" == python3 ]]; then cat >/dev/null; exit 0; fi\necho attempt >> "$ATTEMPT_LOG"\nexit 124\n')
+            sudo.write_text('#!/bin/bash\nif [[ "$1" == bash ]]; then exit 0; fi\necho attempt >> "$ATTEMPT_LOG"\nexit 124\n')
             sudo.chmod(0o755)
             attempts = base / 'attempts'
             env = {**os.environ, 'PATH': str(base)+':'+os.environ['PATH'], 'ATTEMPT_LOG': str(attempts), 'SHELL_APT_ATTEMPTS': '2'}

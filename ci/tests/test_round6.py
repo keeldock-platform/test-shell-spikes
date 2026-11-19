@@ -163,7 +163,7 @@ foreach ($expected in @($false,$true)) {
                    GITHUB_REF='refs/heads/shell-spikes/integration-1118', GITHUB_REF_TYPE='branch')
         for number in ['1', '2', '3', '4', '5', '6', '7']:
             self.assertTrue(discovery.authorized(policy, {**env, 'GITHUB_RUN_NUMBER': number}))
-        for key, wrong in [('GITHUB_RUN_NUMBER','8'), ('GITHUB_RUN_ATTEMPT','2'), ('GITHUB_RUN_ID',''),
+        for key, wrong in [('GITHUB_RUN_NUMBER',str(max(json.loads((ROOT / 'ci/discovery-authorization.json').read_text())['runNumbers']) + 1)), ('GITHUB_RUN_ATTEMPT','2'), ('GITHUB_RUN_ID',''),
                            ('GITHUB_REF','refs/heads/other'), ('GITHUB_REF_TYPE','tag')]:
             self.assertFalse(discovery.authorized(policy, {**env, key: wrong}))
         with patch.dict(os.environ, {'ANDROID_API_LEVEL':'30'}):

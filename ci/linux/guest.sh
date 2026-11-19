@@ -26,16 +26,18 @@ done
 docker run "${args[@]}" "$image" bash -c '
   set -euo pipefail
   if command -v apt-get >/dev/null; then
-    apt-get update
+    export SHELL_PACKAGE_ROOT=1
+    bash ci/apt-host.sh update
     packages=(sudo python3 git ca-certificates build-essential curl pkg-config)
     printf "Guest bootstrap packages: %s\n" "${packages[*]}"
     apt-cache policy "${packages[@]}" | tee evidence/preflight/linux-bootstrap-packages.txt
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${packages[@]}"
+    bash ci/apt-host.sh install -y --no-install-recommends "${packages[@]}"
   else
+    export SHELL_PACKAGE_ROOT=1
     packages=(sudo python3 git ca-certificates gcc gcc-c++ make curl-minimal pkgconf-pkg-config)
     printf "Guest bootstrap packages: %s\n" "${packages[*]}"
-    dnf repoquery --available "${packages[@]}" | tee evidence/preflight/linux-bootstrap-packages.txt
-    dnf install -y "${packages[@]}"
+    bash ci/dnf-retry.sh repoquery --available "${packages[@]}" | tee evidence/preflight/linux-bootstrap-packages.txt
+    bash ci/dnf-retry.sh install -y "${packages[@]}"
   fi
   # A private system bus supports GNOME services inside the container.
   mkdir -p /run/dbus

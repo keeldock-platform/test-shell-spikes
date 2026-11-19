@@ -533,6 +533,8 @@ def main() -> int:
             build = execute(["cargo", "tauri", "ios", "build", "--ci", "--target", "aarch64-sim", "--features", feature_args], cwd=MOBILE)
         else:
             build = execute(["cargo", "tauri", "android", "build", "--ci", "--debug", "--target", "x86_64", "--apk", "--features", feature_args], cwd=MOBILE)
+        if target == "android" and build == 0:
+            build = execute(["bash", "ci/probe-android-generated.sh"])
         mobile_app_built = build == 0
     else:
         features = ",".join(f"spike-{spike}" for spike in args.spikes)

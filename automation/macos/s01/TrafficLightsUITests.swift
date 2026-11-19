@@ -135,7 +135,7 @@ final class TrafficLightsUITests: XCTestCase {
 
     private func waitForMarker(status: String, afterSequence: Int) {
         let marker = app.descendants(matching: .any).matching(
-            NSPredicate(format: "label BEGINSWITH %@", "S01 ")
+            NSPredicate(format: "label MATCHES %@", "S01 [0-9]+ (READY|APPLYING|SETTLED|ERROR)")
         ).firstMatch
         let expectation = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             guard marker.exists else { return false }
@@ -144,12 +144,17 @@ final class TrafficLightsUITests: XCTestCase {
                   let sequence = Int(parts[1]) else { return false }
             return sequence > afterSequence && marker.label.contains(status)
         }, object: nil)
-        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 12), .completed, "S01 marker did not settle after sequence \(afterSequence)")
+        let result = XCTWaiter.wait(for: [expectation], timeout: 12)
+        let tree = XCTAttachment(string: app.debugDescription)
+        tree.name = "s01-marker-tree-after-\(afterSequence)"
+        tree.lifetime = .keepAlways
+        add(tree)
+        XCTAssertEqual(result, .completed, "S01 marker did not settle after sequence \(afterSequence); observed=\(marker.exists ? marker.label : "missing")")
     }
 
     private func currentSequence() -> Int {
         let marker = app.descendants(matching: .any).matching(
-            NSPredicate(format: "label BEGINSWITH %@", "S01 ")
+            NSPredicate(format: "label MATCHES %@", "S01 [0-9]+ (READY|APPLYING|SETTLED|ERROR)")
         ).firstMatch
         let parts = marker.label.split(separator: " ")
         return parts.count > 1 ? Int(parts[1]) ?? 0 : 0

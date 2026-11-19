@@ -533,13 +533,26 @@ final class Probe {
         try setGeometry(reopened, position: requestedPosition, size: requestedSize)
         let moved: NativeWindow = try waitUntil("Settings move and resize to settle") {
             guard let value = self.settingsWindow() else { return nil }
-            return abs(value.frame.origin.x - requestedPosition.x) < 3 && abs(value.frame.size.width - requestedSize.width) < 3 ? value : nil
+            return abs(value.frame.origin.x - requestedPosition.x) < 3
+                && abs(value.frame.origin.y - requestedPosition.y) < 3
+                && abs(value.frame.width - requestedSize.width) < 3
+                && abs(value.frame.height - requestedSize.height) < 3 ? value : nil
         }
         observe("geometry-before-destroy", moved, extra: ["originalBounds": rectArray(originalFrame)])
         try press("Destroy Settings window (test)")
         try waitForNoSettings()
         try sendComma()
-        let restored = try waitForSettings()
+        var restored = try waitForSettings()
+        let restoreDeadline = ProcessInfo.processInfo.systemUptime + 8
+        repeat {
+            if let sample = settingsWindow() { restored = sample }
+            observe("geometry-restore-sample", restored, extra: ["savedBounds": rectArray(moved.frame)])
+            if abs(restored.frame.origin.x - moved.frame.origin.x) < 3
+                && abs(restored.frame.origin.y - moved.frame.origin.y) < 3
+                && abs(restored.frame.width - moved.frame.width) < 3
+                && abs(restored.frame.height - moved.frame.height) < 3 { break }
+            RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.1))
+        } while ProcessInfo.processInfo.systemUptime < restoreDeadline
         let geometryRestored = abs(restored.frame.origin.x - moved.frame.origin.x) < 3
             && abs(restored.frame.origin.y - moved.frame.origin.y) < 3
             && abs(restored.frame.width - moved.frame.width) < 3

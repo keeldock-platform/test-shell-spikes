@@ -4,6 +4,12 @@ Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+$frameworkReferences = @(Get-ChildItem -LiteralPath (Join-Path $PSHOME 'ref') -Filter '*.dll' | Select-Object -ExpandProperty FullName)
+Add-Type -Path (Join-Path $PSScriptRoot '../ScopedUia.cs') -ReferencedAssemblies (@(
+    [System.Windows.Automation.AutomationElement].Assembly.Location,
+    [System.Windows.Automation.ControlType].Assembly.Location,
+    [System.Windows.Rect].Assembly.Location
+) + $frameworkReferences)
 
 $recorder = Join-Path $EvidenceDir 'recorder'
 New-Item -ItemType Directory -Force -Path $recorder | Out-Null
@@ -13,8 +19,7 @@ $pidCondition = New-Object System.Windows.Automation.PropertyCondition(
 $root = $null
 $windowDeadline = (Get-Date).AddSeconds(30)
 do {
-    $root = [System.Windows.Automation.AutomationElement]::RootElement.FindFirst(
-        [System.Windows.Automation.TreeScope]::Children, $pidCondition)
+    $root = [ScopedUia]::WindowForPid([int]$env:SHELL_APP_PID)
     if ($null -ne $root) { break }
     Start-Sleep -Milliseconds 200
 } while ((Get-Date) -lt $windowDeadline)
@@ -23,27 +28,11 @@ $all = [System.Windows.Automation.TreeScope]::Descendants
 $condition = [System.Windows.Automation.Condition]::TrueCondition
 
 function Get-TreeText {
-    $walker = [System.Windows.Automation.TreeWalker]::ControlViewWalker
-    $lines = [System.Collections.Generic.List[string]]::new()
-    function Visit([System.Windows.Automation.AutomationElement]$element, [int]$depth) {
-        if ($null -eq $element) { return }
-        $name = $element.Current.Name
-        if ($name) { $lines.Add((' ' * $depth) + $name) }
-        $child = $walker.GetFirstChild($element)
-        while ($null -ne $child) {
-            Visit $child ($depth + 1)
-            $child = $walker.GetNextSibling($child)
-        }
-    }
-    Visit $root 0
-    return $lines
+    return @([ScopedUia]::Walk($root, 18, 2000) | ForEach-Object { [ScopedUia]::Name($_) })
 }
 
 function Find-Name([string]$Text) {
-    $matcher = New-Object System.Windows.Automation.PropertyCondition(
-        [System.Windows.Automation.AutomationElement]::NameProperty, $Text,
-        [System.Windows.Automation.PropertyConditionFlags]::IgnoreCase)
-    return $root.FindFirst($all, $matcher)
+    return [ScopedUia]::FindName($root, $Text)
 }
 
 function Invoke-Element($Element) {
@@ -84,19 +73,21 @@ $screenBitmap.Save((Join-Path $recorder 'screen.png'), [System.Drawing.Imaging.I
 $screenGraphics.Dispose(); $screenBitmap.Dispose()
 
 $accepted = [System.Collections.Generic.List[string]]::new()
-$hexEdit = $root.FindFirst($all, (New-Object System.Windows.Automation.PropertyCondition(
-    [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-    [System.Windows.Automation.ControlType]::Edit)))
-if ($pickerVisible -and $hexEdit -and ($hexEdit.Current.Name -match 'hex|html|colour code|color code')) {
+$hexEdit = [ScopedUia]::Walk($root, 18, 2000) | Where-Object {
+    ([ScopedUia]::Info($_)).ControlType -eq [System.Windows.Automation.ControlType]::Edit -and
+    [ScopedUia]::Name($_) -ne 'HEX' -and [ScopedUia]::Name($_) -match 'hex|html|colour code|color code'
+} | Select-Object -First 1
+if ($pickerVisible -and $hexEdit -and (([ScopedUia]::Info($hexEdit)).Name -match 'hex|html|colour code|color code')) {
     foreach ($value in @('#7C4DFF', '#28A77A')) {
         if ($null -eq $hexEdit) { break }
-        $hexEdit.SetFocus()
+        [ScopedUia]::Focus($hexEdit)
         [System.Windows.Forms.SendKeys]::SendWait('^a')
         [System.Windows.Forms.SendKeys]::SendWait($value)
         [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
         Start-Sleep -Milliseconds 400
         $pageText = (Get-TreeText) -join "`n"
-        if ($pageText -match 'native-change' -and $pageText.ToLowerInvariant().Contains($value.ToLowerInvariant())) {
+        $returnedRows = @(Get-TreeText | Where-Object { $_ -match 'native-change' -and $_.ToLowerInvariant().Contains($value.ToLowerInvariant()) })
+        if ($returnedRows.Count -gt 0) {
             $accepted.Add($value.ToLowerInvariant())
         }
         if ($value -eq '#7C4DFF') {
@@ -104,12 +95,12 @@ if ($pickerVisible -and $hexEdit -and ($hexEdit.Current.Name -match 'hex|html|co
             if (Invoke-Element $pickerButton) {
                 Start-Sleep -Milliseconds 500
                 Save-Tree 'native-tree-picker.txt'
-                $edits = $root.FindAll($all, (New-Object System.Windows.Automation.PropertyCondition(
-                    [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-                    [System.Windows.Automation.ControlType]::Edit)))
+                $edits = @([ScopedUia]::Walk($root, 18, 2000) | Where-Object {
+                    ([ScopedUia]::Info($_)).ControlType -eq [System.Windows.Automation.ControlType]::Edit
+                })
                 $hexEdit = $null
                 foreach ($edit in $edits) {
-                    if ($edit.Current.Name -match 'hex|html|colour code|color code') { $hexEdit = $edit; break }
+                    if (([ScopedUia]::Info($edit)).Name -ne 'HEX' -and ([ScopedUia]::Info($edit)).Name -match 'hex|html|colour code|color code') { $hexEdit = $edit; break }
                 }
             }
         }
@@ -121,7 +112,7 @@ $openAgain = Find-Name 'Open Appearance dialog'
 if (Invoke-Element $openAgain) {
     $hex = Find-Name 'HEX'
     if ($hex) {
-        $hex.SetFocus()
+        [ScopedUia]::Focus($hex)
         [System.Windows.Forms.SendKeys]::SendWait('^a')
         [System.Windows.Forms.SendKeys]::SendWait('#E0A526')
         Invoke-Element (Find-Name 'Use HEX value') | Out-Null
@@ -133,7 +124,7 @@ if (Invoke-Element $openAgain) {
         Invoke-Element (Find-Name 'Open Appearance dialog') | Out-Null
         $hex = Find-Name 'HEX'
         if ($hex) {
-            $hex.SetFocus(); [System.Windows.Forms.SendKeys]::SendWait('^a'); [System.Windows.Forms.SendKeys]::SendWait('abc')
+            [ScopedUia]::Focus($hex); [System.Windows.Forms.SendKeys]::SendWait('^a'); [System.Windows.Forms.SendKeys]::SendWait('abc')
             Invoke-Element (Find-Name 'Use HEX value') | Out-Null
             $shortOk = ((Get-TreeText) -join "`n") -match '#aabbcc'
             Invoke-Element (Find-Name 'Cancel') | Out-Null
@@ -141,7 +132,7 @@ if (Invoke-Element $openAgain) {
             Invoke-Element (Find-Name 'Open Appearance dialog') | Out-Null
             $hex = Find-Name 'HEX'
             if ($hex) {
-                $hex.SetFocus(); [System.Windows.Forms.SendKeys]::SendWait('^a'); [System.Windows.Forms.SendKeys]::SendWait('#12XZ')
+                [ScopedUia]::Focus($hex); [System.Windows.Forms.SendKeys]::SendWait('^a'); [System.Windows.Forms.SendKeys]::SendWait('#12XZ')
                 Invoke-Element (Find-Name 'Use HEX value') | Out-Null
                 $invalidOk = ((Get-TreeText) -join "`n") -match 'Enter a colour'
                 Invoke-Element (Find-Name 'Cancel') | Out-Null

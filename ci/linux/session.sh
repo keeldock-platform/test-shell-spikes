@@ -35,11 +35,14 @@ provision_host() {
       gsettings-desktop-schemas gnome-screenshot gtk3-devel webkit2gtk4.1-devel
       libappindicator-gtk3-devel openssl-devel librsvg2-devel libxdo-devel patchelf
       python3-pyatspi xdpyinfo xprop xrandr xrdb xorg-x11-xauth xdotool xorg-x11-server-Xvfb
-      ydotool pipewire wireplumber pipewire-gstreamer gstreamer1-plugins-base
-      gstreamer1-plugins-good xdg-desktop-portal-gnome metacity mutter-devkit)
+      xdg-desktop-portal-gnome metacity)
+    if [[ "$session_slug" == "wayland" ]]; then
+      packages+=(ydotool pipewire wireplumber pipewire-gstreamer gstreamer1-plugins-base
+        gstreamer1-plugins-good mutter-devkit)
+    fi
     printf 'Provisioning resolved package set (%s/%s): %s\n' "$profile" "$session" "${packages[*]}"
-    sudo dnf repoquery --available "${packages[@]}" | tee "${diagnostics%.json}-packages.txt"
-    sudo dnf install -y "${packages[@]}"
+    bash ci/dnf-retry.sh repoquery --available "${packages[@]}" | tee "${diagnostics%.json}-packages.txt"
+    bash ci/dnf-retry.sh install -y "${packages[@]}"
   else
     bash ci/apt-host.sh update
     screenshot=gnome-screenshot
@@ -65,7 +68,7 @@ provision_host() {
   local -a package_names
   gnome_version="$(gnome-shell --version | tr -d '\r')"
   webkit_version="$(pkg-config --modversion webkit2gtk-4.1)"
-  ffmpeg_version="$(ffmpeg -version | head -n 1)"
+  ffmpeg_version="$(ffmpeg -version | sed -n '1p')"
   package_names=(at-spi2-core dbus-x11 ffmpeg gnome-shell gnome-session gnome-screenshot libgtk-3-dev libwebkit2gtk-4.1-dev python3-pyatspi xdotool xvfb)
   if [[ "$session_slug" == "wayland" ]]; then
     package_names+=(ydotool)
@@ -193,6 +196,13 @@ run_in_session() {
     if [[ "$XDG_SESSION_TYPE" == "wayland" ]]; then
       pipewire >"${log}.pipewire" 2>&1 &
       pipewire_pid=$!
+      pipewire_ready=0
+      for _ in {1..40}; do
+        if timeout 2 pw-cli info 0 >"${log}.pipewire-probe" 2>&1; then pipewire_ready=1; break; fi
+        if ! kill -0 "$pipewire_pid" 2>/dev/null; then break; fi
+        sleep 0.25
+      done
+      [[ "$pipewire_ready" == 1 ]] || { cat "${log}.pipewire" "${log}.pipewire-probe" >&2; exit 78; }
       wireplumber >"${log}.wireplumber" 2>&1 &
       wireplumber_pid=$!
       export WAYLAND_DISPLAY=wayland-0

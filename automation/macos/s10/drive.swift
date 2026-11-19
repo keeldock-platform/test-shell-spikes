@@ -26,11 +26,18 @@ func attribute(_ element: AXUIElement, _ name: String) -> String {
 
 func flatten(_ root: AXUIElement) -> [(AXUIElement, String)] {
     var result: [(AXUIElement, String)] = []
-    func visit(_ node: AXUIElement) {
-        let text = [kAXTitleAttribute, kAXDescriptionAttribute, kAXValueAttribute, kAXRoleAttribute]
+    func visit(_ node: AXUIElement, depth: Int = 0) {
+        guard depth < 30 && result.count < 3000 else { return }
+        let text = [kAXTitleAttribute, kAXDescriptionAttribute, kAXValueAttribute, kAXRoleAttribute, kAXSubroleAttribute]
             .map { attribute(node, $0 as String) }.filter { !$0.isEmpty }.joined(separator: " | ")
-        if !text.isEmpty { result.append((node, text)) }
-        for child in children(node) { visit(child) }
+        var labelledText = text
+        var titleElement: CFTypeRef?
+        if AXUIElementCopyAttributeValue(node, kAXTitleUIElementAttribute as CFString, &titleElement) == .success,
+           let titleElement, CFGetTypeID(titleElement) == AXUIElementGetTypeID() {
+            labelledText += " | label=" + attribute(titleElement as! AXUIElement, kAXValueAttribute as String)
+        }
+        if !labelledText.isEmpty { result.append((node, labelledText)) }
+        for child in children(node) { visit(child, depth: depth + 1) }
     }
     visit(root)
     return result
@@ -79,43 +86,109 @@ screenCapture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
 screenCapture.arguments = ["-x", recorder.appendingPathComponent("screen.png").path]
 try? screenCapture.run(); screenCapture.waitUntilExit()
 
+func nativePickerRows() -> [(AXUIElement, String)] {
+    var rows: [(AXUIElement, String)] = []
+    for process in NSWorkspace.shared.runningApplications where
+        process.processIdentifier == appProcess?.processIdentifier ||
+        (process.bundleIdentifier ?? "").localizedCaseInsensitiveContains("colorpicker") {
+        let root = AXUIElementCreateApplication(process.processIdentifier)
+        AXUIElementSetMessagingTimeout(root, 1)
+        var windowsValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(root, kAXWindowsAttribute as CFString, &windowsValue) == .success,
+              let windows = windowsValue as? [AXUIElement] else { continue }
+        for window in windows {
+            let title = attribute(window, kAXTitleAttribute as String).lowercased()
+            if title.contains("color") || title.contains("colour") || process.processIdentifier != appProcess?.processIdentifier {
+                rows += flatten(window)
+            }
+        }
+    }
+    return rows
+}
+
+func pickerField(_ rows: [(AXUIElement, String)], _ tokens: [String]) -> AXUIElement? {
+    rows.first { row in
+        row.1.contains("AXTextField") && tokens.contains { row.1.localizedCaseInsensitiveContains($0) }
+    }?.0
+}
+
+func setNativeField(_ field: AXUIElement, _ value: String) -> Bool {
+    guard AXUIElementSetAttributeValue(field, kAXFocusedAttribute as CFString, kCFBooleanTrue) == .success,
+          AXUIElementSetAttributeValue(field, kAXValueAttribute as CFString, value as CFString) == .success else { return false }
+    CGEvent(keyboardEventSource: nil, virtualKey: 36, keyDown: true)?.post(tap: .cghidEventTap)
+    CGEvent(keyboardEventSource: nil, virtualKey: 36, keyDown: false)?.post(tap: .cghidEventTap)
+    return true
+}
+
 var accepted: [String] = []
 for (index, colour) in ["#7C4DFF", "#28A77A"].enumerated() {
-    var nativeRows = flatten(AXUIElementCreateSystemWide())
+    if index > 0, let appElement {
+        if let control = flatten(appElement).first(where: { $0.1.localizedCaseInsensitiveContains("Custom colour picker") })?.0 {
+            _ = press(control)
+        }
+    }
+    var nativeRows: [(AXUIElement, String)] = []
+    let panelDeadline = Date(timeIntervalSinceNow: 8)
+    repeat {
+        nativeRows = nativePickerRows()
+        if !nativeRows.isEmpty { break }
+        usleep(100_000)
+    } while Date() < panelDeadline
+    writeEvent("native-panel-owner-probe", fields: ["nodeCount": nativeRows.count, "selection": index])
     if let sliders = nativeRows.first(where: {
         $0.1.localizedCaseInsensitiveContains("sliders") &&
         ($0.1.contains("AXRadioButton") || $0.1.contains("AXButton"))
-    })?.0 {
-        _ = press(sliders)
-        usleep(300_000)
-        nativeRows = flatten(AXUIElementCreateSystemWide())
+    })?.0 { _ = press(sliders); usleep(300_000) }
+    nativeRows = nativePickerRows()
+    if let mode = nativeRows.first(where: { $0.1.contains("AXPopUpButton") })?.0 {
+        _ = press(mode)
+        usleep(150_000)
+        if let rgb = nativePickerRows().first(where: { $0.1.contains("RGB Sliders") && $0.1.contains("AXMenuItem") })?.0 {
+            _ = press(rgb)
+        } else {
+            CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: true)?.post(tap: .cghidEventTap)
+            CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: false)?.post(tap: .cghidEventTap)
+        }
     }
+    let fieldDeadline = Date(timeIntervalSinceNow: 5)
+    repeat {
+        nativeRows = nativePickerRows()
+        if pickerField(nativeRows, ["hex", "html"]) != nil { break }
+        usleep(100_000)
+    } while Date() < fieldDeadline
+    try nativeRows.map(\.1).joined(separator: "\n").write(
+        to: recorder.appendingPathComponent("native-tree-picker-\(index).txt"), atomically: true, encoding: .utf8)
     try nativeRows.map(\.1).joined(separator: "\n").write(
         to: recorder.appendingPathComponent("native-tree-picker.txt"), atomically: true, encoding: .utf8)
-    guard let field = nativeRows.first(where: {
-        ($0.1.localizedCaseInsensitiveContains("hex") || $0.1.localizedCaseInsensitiveContains("html")) &&
-        $0.1.localizedCaseInsensitiveContains("AXTextField")
-    })?.0 else { break }
-    if AXUIElementSetAttributeValue(field, kAXValueAttribute as CFString, colour as CFString) == .success {
-        let enter = CGEvent(keyboardEventSource: nil, virtualKey: 36, keyDown: true)
-        enter?.post(tap: .cghidEventTap)
-        let enterUp = CGEvent(keyboardEventSource: nil, virtualKey: 36, keyDown: false)
-        enterUp?.post(tap: .cghidEventTap)
-        usleep(350_000)
-        let currentPage = appElement.map(flatten) ?? []
-        let pageText = currentPage.map(\.1).joined(separator: "\n").lowercased()
-        if pageText.contains("native-change") && pageText.contains(colour.lowercased()) {
-            accepted.append(colour.lowercased())
+    var entered = false
+    var route = "no-native-fields"
+    if let field = pickerField(nativeRows, ["hex", "html"]) {
+        entered = setNativeField(field, String(colour.dropFirst()))
+        route = "native-hex"
+    } else {
+        let components = index == 0 ? [124, 77, 255] : [40, 167, 122]
+        let names = ["red", "green", "blue"]
+        entered = true
+        for channel in 0..<3 {
+            guard let field = pickerField(nativeRows, [names[channel]]) else { entered = false; break }
+            if !setNativeField(field, String(components[channel])) { entered = false; break }
         }
-        writeEvent("native-picker-value-entry", fields: ["value": colour.lowercased(), "returned": accepted.contains(colour.lowercased())])
+        route = "native-rgb-fields"
     }
-    if index == 0, let appElement {
-        let currentPage = flatten(appElement)
-        if let control = currentPage.first(where: { $0.1.localizedCaseInsensitiveContains("Custom colour picker") })?.0 {
-            _ = press(control)
-            usleep(500_000)
+    // Closing the real panel commits WKWebView's native chooser result.
+    if let close = nativePickerRows().first(where: { $0.1.contains("AXCloseButton") })?.0 { _ = press(close) }
+    let returnedDeadline = Date(timeIntervalSinceNow: 5)
+    var returned = false
+    repeat {
+        returned = (appElement.map(flatten) ?? []).contains {
+            $0.1.localizedCaseInsensitiveContains("native-change") && $0.1.localizedCaseInsensitiveContains(colour)
         }
-    }
+        if returned { break }
+        usleep(100_000)
+    } while Date() < returnedDeadline
+    if entered && returned { accepted.append(colour.lowercased()) }
+    writeEvent("native-picker-value-entry", fields: ["value": colour.lowercased(), "route": route,
+               "entered": entered, "returned": returned, "nativeNodeCount": nativeRows.count])
 }
 
 var finalRows = appElement.map(flatten) ?? []
