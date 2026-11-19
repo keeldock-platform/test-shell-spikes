@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "decision": "Coordinator A2, 2026-11-19: one discovery wave; earlier runs stopped before discovery",
+  "ref": "refs/heads/shell-spikes/integration-1118",
+  "runNumbers": [1, 2, 3],
+  "runAttempt": 1,
+  "installation": "official stable channels for other platforms; Android uses bundled WebView from official sdkmanager image (decision C, 2026-11-19)",
+  "evidence": "recorder/runtime-discovery.json: exact resolved versions, installed payload SHA-256, install logs and coordinator candidate pins",
+  "freezeOwner": "coordinator; after discovery populate exactRuntimeVersionsByCell, set mode=locked, remove runtimePolicy.discoveryAuthorization and delete this file"
+}

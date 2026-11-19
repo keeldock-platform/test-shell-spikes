@@ -73,10 +73,14 @@ environment lock. GitHub Actions themselves are fixed to full commit SHAs.
 ## Coordinator revision, 2026-11-19
 
 The empty per-cell runtime pin map explicitly selects `first-ci-run-discovery`.
-Only workflow run number 1, attempt 1 may install from official stable channels;
-subsequent runs require the coordinator to populate `exactRuntimeVersionsByCell`
-and switch `runtimePolicy.mode` to `locked`. Discovery continues to downgrade
-runtime-dependent PASS to UNVERIFIED until that freeze.
+Coordinator decision A2 authorizes workflow run numbers 1–3, attempt 1 only, on
+`refs/heads/shell-spikes/integration-1118` through the source-controlled
+`ci/discovery-authorization.json` referenced by `runtimePolicy.discoveryAuthorization`.
+Earlier runs stopped before discovery; this remains one discovery wave. After that
+wave the coordinator must populate `exactRuntimeVersionsByCell`, switch
+`runtimePolicy.mode` to `locked`, remove `runtimePolicy.discoveryAuthorization`,
+and delete the authorization file. No script renews this authorization. Discovery
+continues to downgrade runtime-dependent PASS to UNVERIFIED until that freeze.
 
 `ci/runtime-discovery.py` runs before builds in each provisioned cell. It uses
 Microsoft's [Evergreen bootstrapper](https://learn.microsoft.com/microsoft-edge/webview2/concepts/distribution),

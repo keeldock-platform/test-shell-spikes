@@ -159,9 +159,12 @@ foreach ($expected in @($false,$true)) {
 
     def test_discovery_authorization_dry_run_and_payload_hash(self):
         policy = json.loads((ROOT / 'ci/environment-lock.json').read_text())['runtimePolicy']
-        env = dict(GITHUB_RUN_NUMBER='1', GITHUB_RUN_ATTEMPT='1', GITHUB_RUN_ID='123')
-        self.assertTrue(discovery.authorized(policy, env))
-        for key, wrong in [('GITHUB_RUN_NUMBER','2'), ('GITHUB_RUN_ATTEMPT','2'), ('GITHUB_RUN_ID','')]:
+        env = dict(GITHUB_RUN_NUMBER='3', GITHUB_RUN_ATTEMPT='1', GITHUB_RUN_ID='123',
+                   GITHUB_REF='refs/heads/shell-spikes/integration-1118', GITHUB_REF_TYPE='branch')
+        for number in ['1', '2', '3']:
+            self.assertTrue(discovery.authorized(policy, {**env, 'GITHUB_RUN_NUMBER': number}))
+        for key, wrong in [('GITHUB_RUN_NUMBER','4'), ('GITHUB_RUN_ATTEMPT','2'), ('GITHUB_RUN_ID',''),
+                           ('GITHUB_REF','refs/heads/other'), ('GITHUB_REF_TYPE','tag')]:
             self.assertFalse(discovery.authorized(policy, {**env, key: wrong}))
         with patch.dict(os.environ, {'ANDROID_API_LEVEL':'30'}):
             for target in ['macos','ios','android','linux','windows']:

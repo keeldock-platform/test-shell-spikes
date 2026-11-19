@@ -14,14 +14,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = Path(os.environ.get("SHELL_EVIDENCE_DIR", "evidence"))
-OUTPUT.mkdir(parents=True, exist_ok=True)
-for directory in ("screens", "video", "recorder"):
-    (OUTPUT / directory).mkdir(parents=True, exist_ok=True)
 cell = os.environ.get("SHELL_CELL", os.environ.get("GITHUB_JOB", "unknown"))
 checkout_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
 frozen_sha = os.environ.get("FROZEN_SHA", "")
 if not re.fullmatch(r"[0-9a-f]{40}", checkout_sha) or (frozen_sha and checkout_sha != frozen_sha):
     raise SystemExit("checked-out source SHA does not match the frozen dispatch SHA")
+# Validate the same frozen-input and discovery guards before creating evidence.
+subprocess.run([sys.executable, str(ROOT / "ci/check-frozen-inputs.py")], cwd=ROOT, check=True)
+OUTPUT.mkdir(parents=True, exist_ok=True)
+for directory in ("screens", "video", "recorder"):
+    (OUTPUT / directory).mkdir(parents=True, exist_ok=True)
 environment = {
     "sourceSha": checkout_sha,
     "job": os.environ.get("GITHUB_JOB", "unknown"),

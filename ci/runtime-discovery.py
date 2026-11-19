@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """One-wave official stable-channel update and installed-runtime evidence.
 
-No implicit discovery: only workflow run number/attempt 1 may use the empty map.
+No implicit discovery: the coordinator file scopes run numbers, branch and attempt 1.
 The coordinator reviews runtime-discovery.json and freezes its candidate pins.
 Android uses the WebView bundled in the official sdkmanager system image.
 Active discovery is read-only and non-blocking; latest-stable is UNVERIFIED.
@@ -16,14 +16,15 @@ from pathlib import Path
 import subprocess
 import sys
 
+from discovery_authorization import discovery_authorization_errors
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def authorized(policy, env):
     return (policy.get('mode') == 'first-ci-run-discovery'
             and not policy.get('exactRuntimeVersionsByCell')
-            and env.get('GITHUB_RUN_NUMBER') == '1'
-            and env.get('GITHUB_RUN_ATTEMPT') == '1'
+            and not discovery_authorization_errors(policy, env, require_ci=True)
             and bool(env.get('GITHUB_RUN_ID')))
 
 
@@ -230,7 +231,7 @@ def main():
     if policy.get('mode') == 'locked':
         return 0
     if not authorized(policy, os.environ):
-        raise SystemExit('Empty runtime pins authorize discovery only on CI run number 1, attempt 1; coordinator must freeze before another run.')
+        raise SystemExit('Discovery requires the coordinator-authorized run number, branch and first attempt; coordinator must freeze after the discovery wave.')
     if args.platform == 'android':
         # run-platform provisions the official SDK packages once before boot.
         return 0

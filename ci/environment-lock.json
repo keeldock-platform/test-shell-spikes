@@ -5,15 +5,9 @@
     "passRequiresExactRuntimeMatch": true,
     "exactRuntimeVersionsByCell": {},
     "unmatchedOrUnpinnedVerdict": "UNVERIFIED",
-    "reason": "Empty exactRuntimeVersionsByCell explicitly selects authorized first-CI-run discovery. No runtime-dependent PASS until the coordinator freezes the observed versions and checksums.",
+    "reason": "Empty exactRuntimeVersionsByCell selects one-wave discovery only with explicit coordinator file authorization. No runtime-dependent PASS until the coordinator freezes the observed versions and checksums.",
     "mode": "first-ci-run-discovery",
-    "discoveryAuthorization": {
-      "date": "2026-11-19",
-      "scope": "first CI run only; GITHUB_RUN_NUMBER=1 and GITHUB_RUN_ATTEMPT=1",
-      "installation": "official stable channels for other platforms; Android uses bundled WebView from official sdkmanager image (decision C, 2026-11-19)",
-      "evidence": "recorder/runtime-discovery.json: exact resolved versions, installed payload SHA-256, install logs and coordinator candidate pins",
-      "freezeOwner": "coordinator; set mode=locked and populate exactRuntimeVersionsByCell after this run"
-    }
+    "discoveryAuthorization": "ci/discovery-authorization.json"
   },
   "toolchains": {
     "rust": {

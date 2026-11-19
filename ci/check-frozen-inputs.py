@@ -8,6 +8,8 @@ import os
 import sys
 from pathlib import Path
 
+from discovery_authorization import discovery_authorization_errors
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -35,10 +37,9 @@ def main() -> int:
     pins = runtime_policy.get("exactRuntimeVersionsByCell", {})
     mode = runtime_policy.get("mode")
     if (not pins and (mode != "first-ci-run-discovery" or not runtime_policy.get("discoveryAuthorization"))) or (pins and mode != "locked"):
-        unresolved.append(("ci/environment-lock.json.runtimePolicy.mode", "empty pins require explicit first-run discovery authorization; populated pins require locked mode"))
-    if mode == "first-ci-run-discovery" and os.environ.get("GITHUB_ACTIONS") == "true":
-        if os.environ.get("GITHUB_RUN_NUMBER") != "1" or os.environ.get("GITHUB_RUN_ATTEMPT") != "1":
-            unresolved.append(("runtimePolicy.discoveryAuthorization", "discovery is limited to the first CI run and first attempt; coordinator freeze is required"))
+        unresolved.append(("ci/environment-lock.json.runtimePolicy.mode", "empty pins require explicit coordinator discovery authorization; populated pins require locked mode"))
+    for error in discovery_authorization_errors(runtime_policy, os.environ):
+        unresolved.append(("runtimePolicy.discoveryAuthorization", error))
     for cell, profile in ((item.get("distribution"), item) for item in lock.get("linuxProfiles", [])):
         if profile.get("availability") == "not-provisioned" and not profile.get("fallbacks"):
             unresolved.append((f"ci/environment-lock.json.linuxProfiles.{cell}", "an unavailable profile has no explicit platform fallback"))
