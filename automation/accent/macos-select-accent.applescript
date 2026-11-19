@@ -18,8 +18,12 @@ on run argv
                             set candidateRole to role of candidate as text
                             set candidateName to name of candidate as text
                             set candidateDescription to description of candidate as text
-                            set observed to observed & candidateRole & " | " & candidateName & " | " & candidateDescription & linefeed
-                            if candidateName is targetLabel or candidateDescription is targetLabel then
+                            set candidateHelp to ""
+                            try
+                                set candidateHelp to value of attribute "AXHelp" of candidate as text
+                            end try
+                            set observed to observed & candidateRole & " | " & candidateName & " | " & candidateDescription & " | help=" & candidateHelp & linefeed
+                            if candidateName is targetLabel or candidateDescription is targetLabel or candidateHelp is targetLabel then
                                 if candidateRole is "AXRadioButton" or candidateRole is "AXButton" then
                                     click candidate
                                     delay 1

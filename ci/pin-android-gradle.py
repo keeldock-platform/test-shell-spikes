@@ -32,9 +32,22 @@ def pin(project, version):
         raise ValueError('Generated Gradle distribution URL was not found')
     properties = re.sub(r'^distributionSha256Sum=.*\n?', '', properties, flags=re.M)
     wrapper.write_text(properties.rstrip() + f"\ndistributionSha256Sum={lock['gradleSha256']}\n")
+    app = project / 'app/build.gradle.kts'
+    # CLI 2.12.5 emits AGP 9's optimisation DSL. AGP 8 uses the build type's
+    # isMinifyEnabled property; preserve release shrinking and the ProGuard rules.
+    if app.is_file():
+        source, count = re.subn(r'optimization\s*\{\s*enable\s*=\s*true\s*\}',
+                                'isMinifyEnabled = true', app.read_text())
+        if re.search(r'optimization\s*\{', source):
+            raise ValueError('Unrecognised generated Android optimisation DSL')
+        app.write_text(source)
+        print(f'Android AGP8 optimisation adaptation: {app} blocks={count}')
     # Probe the selected classpath, not only the dependency declarations.
     init = project / 'shell-kotlin.init.gradle'
-    init.write_text('''gradle.beforeProject { p ->
+    init.write_text('''if (System.getenv("SHELL_ANDROID_REFRESH_DEPENDENCIES") == "1") {
+    gradle.startParameter.refreshDependencies = true
+}
+gradle.beforeProject { p ->
     p.buildscript.repositories { google(); mavenCentral(); gradlePluginPortal() }
 }
 gradle.projectsEvaluated {

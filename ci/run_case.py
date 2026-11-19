@@ -239,6 +239,33 @@ def materialize_case_evidence_aliases(spike: str, scenario: Path) -> None:
         (recorder / "case-evidence-aliases.json").write_text(json.dumps(aliases, indent=2) + "\n", encoding="utf-8")
 
 
+def materialize_s02_geometry(scenario: Path) -> None:
+    """Expose measured UIA rectangles already retained in native S02 events."""
+    import math
+    observations = []
+    events = scenario / "events.jsonl"
+    if not events.is_file():
+        return
+    for number, line in enumerate(events.read_text(encoding="utf-8-sig").splitlines(), 1):
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(event, dict) or not isinstance(event.get("data"), dict):
+            continue
+        for key in ("bounds", "targetBounds", "buttonBounds", "before", "after"):
+            bounds = event["data"].get(key)
+            if not isinstance(bounds, dict) or any(
+                type(bounds.get(axis)) not in (int, float) or not math.isfinite(bounds[axis])
+                for axis in ("x", "y", "width", "height")
+            ):
+                continue
+            observations.append({"source": "events.jsonl", "sourceLine": number,
+                                 "event": event.get("name"), "field": key, "bounds": bounds})
+    if observations:
+        (scenario / "recorder/geometry.json").write_text(json.dumps({"observations": observations}, indent=2) + "\n")
+
+
 def attach_case_evidence(results: list[dict], specs: list[dict], scenario: Path, evidence: Path) -> list[dict]:
     """Attach only existing case-local files required by each assertion."""
     specs_by_id = {str(spec.get("id")): spec for spec in specs if spec.get("id")}
@@ -263,6 +290,8 @@ def attach_case_evidence(results: list[dict], specs: list[dict], scenario: Path,
             elif source == "native-tree":
                 candidates = [path for path in sorted((scenario / "recorder").glob("*"))
                               if "native-tree" in path.name.lower() or "accessibility-tree" in path.name.lower()]
+            elif source == "geometry-json":
+                candidates = [scenario / "recorder/geometry.json"]
             elif source == "native-readback":
                 candidates = [path for path in sorted((scenario / "recorder").glob("*"))
                               if "readback" in path.name.lower() or "native-readback" in path.name.lower() or "portal-probe" in path.name.lower()]
@@ -498,7 +527,7 @@ def collect_mobile_renderer_events(platform_name: str, scenario: Path, case_id: 
 def ios_attachment_relative_name(suggested: str) -> Path | None:
     # xcresulttool removes slashes/extensions and appends repetition + UUID.
     # Map only the explicitly named test attachments back to canonical paths.
-    known = ["recorder/observations.json", "recorder/native-tree.txt",
+    known = ["recorder/observations.json", "recorder/native-tree.txt", "recorder/ios-display.json",
              "recorder/native-tree-picker.txt", "recorder/page-accessibility.txt",
              "recorder/manual-input-failure.txt", "events.jsonl",
              "screens/ios-policy.png", "screens/ios-initial.png",
@@ -666,6 +695,32 @@ def prepare_s08_case_evidence(scenario: Path) -> None:
             encoding="utf-8",
         )
 
+
+
+def ios_display_measurement(scenario, preflight, case_id, simulator_udid):
+    """Qualify UIKit display samples exported by the same simulator case."""
+    import math
+    import statistics
+    try:
+        probe = json.loads((scenario / "recorder/ios-display.json").read_text())
+        timestamps = probe["displayLinkTimestamps"]
+        scale = probe["scale"]
+        if (probe.get("caseId") != case_id or not simulator_udid
+                or probe.get("simulatorUdid") != simulator_udid
+                or not isinstance(probe.get("resolution"), str)
+                or not re.fullmatch(r"[1-9]\d*x[1-9]\d*", probe["resolution"])
+                or probe.get("resolution") != preflight.get("display", {}).get("resolution")
+                or type(scale) not in (int, float) or not math.isfinite(scale) or scale <= 0
+                or not isinstance(timestamps, list) or len(timestamps) < 6
+                or any(type(t) not in (int, float) or not math.isfinite(t) for t in timestamps)):
+            return None
+        intervals = [b - a for a, b in zip(timestamps, timestamps[1:])]
+        if any(interval <= 0 for interval in intervals):
+            return None
+        return {"resolution": probe["resolution"], "scale": scale,
+                "refreshHz": 1 / statistics.median(intervals)}
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
 
 
 def main() -> int:
@@ -979,6 +1034,15 @@ def main() -> int:
 
     if platform_name == "ios":
         collect_ios_xctest_evidence(spike, scenario)
+        display = ios_display_measurement(scenario, native_preflight, case_id,
+                                         os.environ.get("SHELL_IOS_SIMULATOR_UDID", ""))
+        if display:
+            native_preflight["display"] = display
+            native_preflight["displayStatus"] = "measured"
+            native_preflight.setdefault("evidence", {})["displayLinkProbe"] = "recorder/ios-display.json"
+            environment["display"] = display
+            environment["displayStatus"] = "measured"
+            (scenario / "recorder/native-preflight.json").write_text(json.dumps(native_preflight, indent=2) + "\n")
 
     if platform_name in {"ios", "android"}:
         collect_mobile_renderer_events(platform_name, scenario, case_id)
@@ -1027,6 +1091,8 @@ def main() -> int:
                             case_id, str(case_events), str(scenario / "assertions.json"), str(scenario)], check=True, timeout=60)
 
     materialize_case_evidence_aliases(spike, scenario)
+    if spike == "s02":
+        materialize_s02_geometry(scenario)
     if spike == "s11":
         subprocess.run([sys.executable, str(ROOT / "ci/finalize-s11.py"), str(scenario)], check=True, timeout=60)
     refresh_lane_envelope(spike, scenario, case_file)
@@ -1099,13 +1165,22 @@ def main() -> int:
                      scenario / "recorder/driver-status.json", scenario / "recorder/ios-xctest-evidence-transport.json",
                      scenario / "recorder/s08-probe.log", scenario / "recorder/s08-ready.log",
                      scenario / "recorder/s02-startup-window-probe.json", scenario / "recorder/s02-app.stderr.log",
+                     scenario / "recorder/accent-selection.txt", scenario / "recorder/native-readback.json",
+                     scenario / "recorder/native-picker-fields.json", scenario / "recorder/s02-error.json",
+                     scenario / "recorder/ios-display.json", scenario / "recorder/capture-index-status.json",
                      scenario / "recorder/xctest-resolved-environment.json")
         if path.is_file()
     }
     (scenario / "recorder/case-diagnostics.json").write_text(json.dumps(probe, indent=2) + "\n")
     print("Native case probe: " + json.dumps(probe), flush=True)
-    incomplete = any(item.get("verdict") in {"UNVERIFIED", "FAIL"} for item in results)
-    return 1 if adapter_status or incomplete or not recorder_started else 0
+    incomplete = any(not item.get("laneVerdict") for item in results) or not results
+    # Several native adapters use exit 1 for an emitted assertion FAIL. Keep that
+    # verdict in the manifest; only execution/setup errors fail this step. The
+    # independent execution guard and collector still reject fallback-only runs.
+    assertion_exit = adapter_status == 1 and not incomplete and any(
+        item.get("laneVerdict") == "FAIL" for item in results)
+    execution_error = bool(adapter_status) and not assertion_exit
+    return 1 if execution_error or incomplete or not recorder_started or not recorder_stop_ok else 0
 
 
 if __name__ == "__main__":

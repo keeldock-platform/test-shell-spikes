@@ -14,7 +14,7 @@ if ($fixtureOnly) {
     $selectionExit = 0
 } else {
     try {
-        & powershell -NoProfile -ExecutionPolicy Bypass -File automation/accent/windows-select-accent.ps1 -AccentName 'Purple' 2>&1 |
+        & pwsh -NoProfile -ExecutionPolicy Bypass -File automation/accent/windows-select-accent.ps1 -AccentName 'Purple' 2>&1 |
             Out-String | Set-Content -Encoding UTF8 $selectionPath
         $selectionExit = $LASTEXITCODE
     } catch {

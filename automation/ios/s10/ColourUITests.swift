@@ -3,6 +3,7 @@ import XCTest
 final class ColourUITests: XCTestCase {
     func testNativeColourInput() throws {
         let caseId = ProcessInfo.processInfo.environment["SHELL_CASE_ID"] ?? ""
+        try captureDisplayProbe()
         let app = XCUIApplication()
         app.launchEnvironment = ProcessInfo.processInfo.environment.filter {
             $0.key.hasPrefix("SHELL_")
@@ -30,8 +31,8 @@ final class ColourUITests: XCTestCase {
         let open = app.buttons["Open Appearance dialog"]
         if selected && open.waitForExistence(timeout: 10) { open.tap() }
 
-        let pickerControl = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label CONTAINS[c] %@", "Custom colour picker"))
+        let pickerControl = app.descendants(matching: .colorWell)
+            .matching(NSPredicate(format: "label == %@", "Custom colour picker"))
             .firstMatch
         var accepted: [String] = []
         var nativeTree = app.debugDescription

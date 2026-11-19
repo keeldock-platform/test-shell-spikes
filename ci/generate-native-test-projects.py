@@ -24,6 +24,8 @@ def project_for(platform: str, suite: str) -> Path:
         "s11": ("AccentUITests", "automation/ios/s11/AccentUITests.swift"),
     }[suite]
     sources = [source]
+    if platform == "ios":
+        sources.append("automation/ios/DisplayProbe.swift")
     project_name = f"{PROJECT_NAME}-{suite}"
     directory = ROOT / "target" / "native-tests" / platform / suite
     project = directory / f"{project_name}.xcodeproj"
@@ -180,6 +182,7 @@ mkdir -p "$TARGET_BUILD_DIR"
       <EnvironmentVariable key="SHELL_MOBILE_EVIDENCE_SUBPATH" value="$(SHELL_MOBILE_EVIDENCE_SUBPATH)" isEnabled="YES"/>
       <EnvironmentVariable key="SHELL_MOBILE_BUNDLE_ID" value="$(SHELL_MOBILE_BUNDLE_ID)" isEnabled="YES"/>
       <EnvironmentVariable key="SHELL_IOS_XCRESULT_PATH" value="$(SHELL_IOS_XCRESULT_PATH)" isEnabled="YES"/>
+      <EnvironmentVariable key="SHELL_IOS_SIMULATOR_UDID" value="$(SHELL_IOS_SIMULATOR_UDID)" isEnabled="YES"/>
       <EnvironmentVariable key="S01_APP_BUNDLE_ID" value="$(S01_APP_BUNDLE_ID)" isEnabled="YES"/>
       <EnvironmentVariable key="S01_ARTIFACT_DIR" value="$(S01_ARTIFACT_DIR)" isEnabled="YES"/>
       <EnvironmentVariable key="S01_PERMISSION_PROMPT_PREFLIGHT" value="$(S01_PERMISSION_PROMPT_PREFLIGHT)" isEnabled="YES"/>

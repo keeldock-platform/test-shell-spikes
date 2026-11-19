@@ -32,7 +32,7 @@ case "$action" in
       command -v ffmpeg >/dev/null || { echo "ffmpeg is unavailable" >&2; exit 1; }
       [[ -n "${DISPLAY:-}" ]] || { echo "X11 DISPLAY is missing" >&2; exit 1; }
       ffmpeg -copyts -nostdin -hide_banner -loglevel warning -y -f x11grab -framerate 60 -draw_mouse 1 -use_wallclock_as_timestamps 1 \
-        -i "${DISPLAY}+0,0" -c:v libx264 -preset ultrafast -pix_fmt yuv420p -f matroska "$output" >"$log_file" 2>&1 &
+        -i "${DISPLAY}+0,0" -c:v ffv1 -pix_fmt yuv420p -f matroska "$output" >"$log_file" 2>&1 &
       recorder_pid=$!
       echo "$recorder_pid" > "$pid_file"
       sleep 2

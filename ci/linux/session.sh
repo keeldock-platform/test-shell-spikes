@@ -37,7 +37,7 @@ provision_host() {
       python3-pyatspi xdpyinfo xprop xrandr xrdb xorg-x11-xauth xdotool xorg-x11-server-Xvfb
       xdg-desktop-portal-gnome metacity)
     if [[ "$session_slug" == "wayland" ]]; then
-      packages+=(ydotool pipewire wireplumber pipewire-gstreamer gstreamer1-plugins-base
+      packages+=(ydotool pipewire pipewire-utils wireplumber pipewire-gstreamer gstreamer1-plugins-base
         gstreamer1-plugins-good mutter-devkit)
     fi
     printf 'Provisioning resolved package set (%s/%s): %s\n' "$profile" "$session" "${packages[*]}"
@@ -249,6 +249,10 @@ run_in_session() {
       [[ -n "$wayland_socket" ]] || { echo "Compositor did not create a Wayland socket" >&2; exit 78; }
       export WAYLAND_DISPLAY="${wayland_socket##*/}"
       printf "Resolved Wayland socket: %s\n" "$WAYLAND_DISPLAY" | tee "${log}.wayland-socket"
+      # D-Bus was started before Mutter chose its socket. Activated GTK helpers
+      # must receive the resolved display rather than the initial guess.
+      dbus-update-activation-environment DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR GDK_BACKEND XDG_SESSION_TYPE XDG_CURRENT_DESKTOP
+      printf "DISPLAY=%s WAYLAND_DISPLAY=%s GDK_BACKEND=%s\n" "$DISPLAY" "$WAYLAND_DISPLAY" "$GDK_BACKEND" >"${log}.activation-environment"
       export PATH="/usr/share/gnome-shell:$PATH"
       if [[ -f /usr/share/gnome-shell/org.gnome.Shell.Screencast ]]; then
         gjs -m /usr/share/gnome-shell/org.gnome.Shell.Screencast >"${log}.screencast" 2>&1 &

@@ -6,6 +6,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { min-width: 360px; min-height: 100vh; margin: 0; }
 .shell-header {
   min-height: 64px; padding: 10px 18px; display: flex; align-items: center;

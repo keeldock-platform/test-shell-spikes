@@ -45,5 +45,14 @@ docker run "${args[@]}" "$image" bash -c '
   dbus-uuidgen --ensure
   dbus-uuidgen --ensure=/etc/machine-id
   dbus-daemon --system --fork
+  # Without systemd PID 1, a package-created empty seats directory incorrectly
+  # makes GNOME select logind. Use GNOMEs native non-systemd login manager.
+  # A nonempty directory is never removed and remains a provisioning error.
+  if [[ "$(cat /proc/1/comm)" != systemd && -d /run/systemd/seats ]]; then
+    rmdir /run/systemd/seats
+    echo "Guest login mode: native GNOME non-systemd; removed empty stale seats directory"
+  fi
+  printf "Guest PID1=%s; system bus names:\n" "$(cat /proc/1/comm)"
+  busctl --system list --no-pager
   bash ci/linux/session.sh run python3 ci/run-platform.py linux --spikes s03 s10 s11
 '

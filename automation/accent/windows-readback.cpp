@@ -4,6 +4,10 @@
 #include <winrt/Windows.UI.h>
 #include <winrt/base.h>
 
+#pragma comment(lib, "windowsapp.lib")
+#pragma comment(lib, "ole32.lib")
+#pragma comment(lib, "oleaut32.lib")
+
 int main() {
     winrt::init_apartment();
     try {

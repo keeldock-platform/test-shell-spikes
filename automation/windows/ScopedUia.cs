@@ -18,7 +18,7 @@ public static class ScopedUia {
         worker.Start();
         if (!done.Wait(750)) throw new TimeoutException("UIA per-call timeout (750ms): " + name);
         if (worker.Join(50)) done.Dispose();
-        if (failure != null) throw new InvalidOperationException("UIA " + name, failure);
+        if (failure != null) throw new InvalidOperationException("UIA " + name + ": " + failure.GetType().Name + ": " + failure.Message, failure);
         return result;
     }
     public static AutomationElement[] Walk(AutomationElement root, int maxDepth, int maxNodes) {
@@ -55,7 +55,9 @@ public static class ScopedUia {
     }
     public static string Name(AutomationElement node) { return Call(() => node.Current.Name, "name"); }
     public static AutomationElement FindName(AutomationElement root, string name) {
-        foreach (var node in Walk(root, 18, 2000)) if (Name(node) == name) return node;
-        return null;
+        // FindFirst stops at the requested control. Walking every sibling first
+        // hit unresponsive provider nodes before reaching an already-ready input.
+        return Call(() => root.FindFirst(TreeScope.Descendants,
+            new PropertyCondition(AutomationElement.NameProperty, name)), "find-name: " + name);
     }
 }

@@ -31,6 +31,8 @@ def environment_lock() -> dict:
 
 def execute(command: list[str], *, cwd: Path = ROOT) -> int:
     print("+ " + " ".join(command), flush=True)
+    if command[:4] == ["cargo", "tauri", "android", "build"]:
+        command = ["bash", str(ROOT / "ci/android-build-retry.sh"), *command]
     return subprocess.run(command, cwd=cwd, env=os.environ.copy(), check=False).returncode
 
 

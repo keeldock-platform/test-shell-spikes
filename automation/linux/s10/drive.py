@@ -87,9 +87,15 @@ def walk(node, depth=0, budget=None):
 def find(text, scope=desktop):
     needle = text.casefold()
     matches = [node for node in walk(scope) if needle in label(node).casefold()]
-    return next((node for node in matches if any(role in node.getRoleName().casefold()
-                for role in ("button", "entry", "text", "color chooser", "colour chooser"))),
-                matches[0] if matches else None)
+    # The preceding static label has the same name as the native colour well.
+    # Prefer controls before text so a successful label action is not activation.
+    for roles in (("color chooser", "colour chooser", "color well", "colour well"),
+                  ("button", "entry"), ("text",)):
+        control = next((node for node in matches if any(role in node.getRoleName().casefold()
+                        for role in roles)), None)
+        if control is not None:
+            return control
+    return matches[0] if matches else None
 
 
 def press(node):

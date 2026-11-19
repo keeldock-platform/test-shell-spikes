@@ -52,6 +52,12 @@ function Stop-OwnedApp {
 
 trap {
     $failure = $_.Exception.Message
+    if ($script:EvidenceRoot -and (Test-Path -LiteralPath $script:EvidenceRoot)) {
+        $probeDir = Join-Path $script:EvidenceRoot 'recorder'
+        New-Item -ItemType Directory -Force -Path $probeDir | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $probeDir 's02-error.json'),
+            (@{ message = $failure; exception = $_.Exception.ToString(); stack = $_.ScriptStackTrace } | ConvertTo-Json -Depth 5))
+    }
     Stop-OwnedApp
     Write-ResultsEnvelope
     [Console]::Error.WriteLine("S02 automation stopped: $failure")
@@ -558,6 +564,14 @@ function Invoke-SnapObservation($Case) {
     Start-Sleep -Milliseconds 150
     [void][S02Input]::SetCursorPos($x, $y)
     $null = Write-Event 'snap-hover' @{ buttonBounds = $bounds; jobId = $JobId; nativeHitTest = $hit; expectedHitTest = 9 }
+    $snapSettings = Get-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -ErrorAction SilentlyContinue
+    $null = Write-Event 'snap-session-probe' @{
+        interactive = [Environment]::UserInteractive
+        sessionId = $script:Process.SessionId
+        enableSnapAssistFlyout = $snapSettings.EnableSnapAssistFlyout
+        enableSnapBar = $snapSettings.EnableSnapBar
+        windowArrangementActive = (Get-ItemProperty -LiteralPath 'HKCU:\Control Panel\Desktop' -ErrorAction SilentlyContinue).WindowArrangementActive
+    }
     $tree = $null
     $frame = $null
     $baseline = @([ScopedUia]::Walk([System.Windows.Automation.AutomationElement]::RootElement, 1, 200) |
@@ -786,10 +800,17 @@ function Invoke-OneCase($Case) {
         }
     }
     catch {
+        $caseError = $_
         $frame = Save-DesktopFrame 'case-error'
-        $null = Write-Event 'case-error' @{ message = $_.Exception.Message; frame = $frame }
-        $verdict = if ($_.Exception.Message -match 'UI Automation|no top-level|runner|desktop|session|popup') { 'UNVERIFIED' } else { 'FAIL' }
-        Write-CaseResult $Case 'All case assertions are evidenced.' $_.Exception.Message $verdict @($frame)
+        $null = Write-Event 'case-error' @{ message = $caseError.Exception.Message; frame = $frame }
+        $pointers = @($frame)
+        try {
+            $pointers += Save-UiaSubtree $script:Window 'case-error-native-tree'
+        } catch {
+            $null = Write-Event 'case-error-tree-unavailable' @{ message = $_.Exception.ToString() }
+        }
+        $verdict = if ($caseError.Exception.Message -match 'UI Automation|no top-level|runner|desktop|session|popup') { 'UNVERIFIED' } else { 'FAIL' }
+        Write-CaseResult $Case 'All case assertions are evidenced.' $caseError.Exception.Message $verdict $pointers
         # Collect later case evidence and write the always-upload result files.
     }
 }

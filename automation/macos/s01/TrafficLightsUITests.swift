@@ -161,12 +161,15 @@ final class TrafficLightsUITests: XCTestCase {
     }
 
     private func stateLabel() -> String {
-        let state = app.descendants(matching: .any).matching(
-            NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", "density=", "density=")
-        ).firstMatch
-        guard state.exists else { return "" }
-        let observed = [state.label, state.value as? String ?? ""]
-        return observed.first(where: { $0.contains("density=") }) ?? ""
+        // Accessibility values can be NSNumber (for example a checkbox's 0).
+        // NSPredicate CONTAINS on those values raises NSInvalidArgumentException.
+        for state in app.descendants(matching: .any).allElementsBoundByIndex {
+            let observed = [state.label, state.value as? String ?? ""]
+            if let text = observed.first(where: { $0.contains("density=") }) {
+                return text
+            }
+        }
+        return ""
     }
 
     private func waitForNativeFullscreen(_ expected: Bool) {

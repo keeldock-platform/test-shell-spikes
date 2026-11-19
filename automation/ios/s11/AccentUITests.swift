@@ -3,6 +3,7 @@ import XCTest
 final class AccentUITests: XCTestCase {
     func testPolicyFixture() throws {
         let caseId = ProcessInfo.processInfo.environment["SHELL_CASE_ID"] ?? ""
+        try captureDisplayProbe()
         let app = XCUIApplication()
         app.launchEnvironment = ProcessInfo.processInfo.environment.filter {
             $0.key.hasPrefix("SHELL_")
