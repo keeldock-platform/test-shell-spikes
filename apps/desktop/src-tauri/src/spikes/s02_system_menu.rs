@@ -89,27 +89,19 @@ pub fn plugin() -> TauriPlugin<Wry> {
             let state = S02State::default();
             app.manage(state.clone());
 
-            #[cfg(windows)]
-            {
-                let window = app
-                    .get_webview_window("main")
-                    .ok_or_else(|| std::io::Error::other("S02 main window is unavailable"))?;
-                window
-                    .set_decorations(false)
-                    .map_err(|error| std::io::Error::other(error.to_string()))?;
-                window
-                    .set_resizable(true)
-                    .map_err(|error| std::io::Error::other(error.to_string()))?;
-                window
-                    .set_title("S02 System Menu Spike")
-                    .map_err(|error| std::io::Error::other(error.to_string()))?;
-                let hwnd = hwnd_for(&window).map_err(std::io::Error::other)?;
-                native::install_window_subclass(hwnd, state).map_err(std::io::Error::other)?;
-                install_accelerator_hook(app, &window).map_err(std::io::Error::other)?;
-            }
             Ok(())
         })
         .on_event(|app, event| {
+            #[cfg(windows)]
+            if let RunEvent::Ready = event {
+                // Configured windows are created after plugin setup.
+                if let Err(error) = initialize_main_window(app) {
+                    eprintln!("S02 native window initialization failed: {error}");
+                    app.exit(1);
+                    return;
+                }
+            }
+
             if let RunEvent::WindowEvent { label, event, .. } = event {
                 if label == "main" {
                     if let Some(window) = app.get_webview_window(label) {
@@ -842,4 +834,25 @@ mod native {
         }
         Ok(hwnd)
     }
+}
+
+#[cfg(windows)]
+fn initialize_main_window(app: &tauri::AppHandle<Wry>) -> Result<(), Box<dyn std::error::Error>> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| std::io::Error::other("S02 main window is unavailable"))?;
+    window
+        .set_decorations(false)
+        .map_err(|error| std::io::Error::other(error.to_string()))?;
+    window
+        .set_resizable(true)
+        .map_err(|error| std::io::Error::other(error.to_string()))?;
+    window
+        .set_title("S02 System Menu Spike")
+        .map_err(|error| std::io::Error::other(error.to_string()))?;
+    let hwnd = hwnd_for(&window).map_err(std::io::Error::other)?;
+    native::install_window_subclass(hwnd, app.state::<S02State>().inner().clone())
+        .map_err(std::io::Error::other)?;
+    install_accelerator_hook(app, &window).map_err(std::io::Error::other)?;
+    Ok(())
 }

@@ -10,9 +10,10 @@ if [[ "${LINUX_DISTRO:-}" == "Ubuntu 24.04" ]]; then
   if [[ "$status" == 78 ]]; then
     export SHELL_LINUX_FALLBACK_REASON="Required GNOME session or input adapter unavailable; see preflight session diagnostics."
     python3 ci/emit-unverified-linux.py
+    exit 78
   else
     exit "$status"
   fi
 else
-  python3 ci/emit-unverified-linux.py
+  bash ci/linux/guest.sh
 fi

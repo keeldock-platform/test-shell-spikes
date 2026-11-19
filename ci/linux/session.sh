@@ -20,8 +20,8 @@ PY
 }
 
 provision_host() {
-  if [[ "$profile" != "Ubuntu 24.04" ]]; then
-    record_status "UNVERIFIED" "Only the Ubuntu 24.04 hosted runner is provisioned for this wave."
+  if [[ "$profile" != "Ubuntu 24.04" && "${SHELL_LINUX_GUEST:-}" != 1 ]]; then
+    record_status "UNVERIFIED" "A non-host distribution requires its own provisioned guest."
     return 78
   fi
   if [[ "$session_slug" != "x11" && "$session_slug" != "wayland" ]]; then
@@ -29,18 +29,25 @@ provision_host() {
     return 78
   fi
 
-  bash ci/apt-host.sh update
-  bash ci/apt-host.sh install --yes --no-install-recommends \
-    at-spi2-core dbus-x11 ffmpeg gnome-shell gnome-session gsettings-desktop-schemas \
-    gnome-screenshot=41.0-2build2 libayatana-appindicator3-dev libgtk-3-dev libwebkit2gtk-4.1-dev patchelf \
-    python3-pyatspi x11-utils xauth xdotool xvfb
-
-  if [[ "$session_slug" == "wayland" ]]; then
-    bash ci/apt-host.sh install --yes --no-install-recommends ydotool ydotoold
-    if [[ ! -e /dev/uinput ]]; then
-      sudo modprobe uinput || true
+  if [[ "$profile" == "Fedora current" ]]; then
+    sudo dnf install -y at-spi2-core dbus-daemon dbus-x11 ffmpeg-free gnome-shell gnome-session \
+      gsettings-desktop-schemas gnome-screenshot gtk3-devel webkit2gtk4.1-devel \
+      libappindicator-gtk3-devel openssl-devel librsvg2-devel libxdo-devel patchelf python3-pyatspi xorg-x11-utils xorg-x11-xauth xdotool xorg-x11-server-Xvfb ydotool pipewire wireplumber pipewire-gstreamer \
+      gstreamer1-plugins-base gstreamer1-plugins-good xdg-desktop-portal-gnome
+  else
+    bash ci/apt-host.sh update
+    screenshot=gnome-screenshot
+    if [[ "$profile" == "Ubuntu 24.04" ]]; then screenshot=gnome-screenshot=41.0-2build2; fi
+    bash ci/apt-host.sh install --yes --no-install-recommends \
+      at-spi2-core dbus-x11 ffmpeg gnome-shell gnome-session gsettings-desktop-schemas \
+      "$screenshot" libssl-dev librsvg2-dev libayatana-appindicator3-dev libgtk-3-dev libwebkit2gtk-4.1-dev patchelf \
+      python3-pyatspi x11-utils xauth xdotool xvfb
+    if [[ "$session_slug" == "wayland" ]]; then
+      bash ci/apt-host.sh install --yes --no-install-recommends ydotool ydotoold \
+        pipewire wireplumber gstreamer1.0-pipewire gstreamer1.0-plugins-good xdg-desktop-portal-gnome
     fi
   fi
+  if [[ "$session_slug" == "wayland" && ! -e /dev/uinput ]]; then sudo modprobe uinput || true; fi
 
   python3 ci/probe-runner.py linux
 
@@ -51,7 +58,12 @@ provision_host() {
   ffmpeg_version="$(ffmpeg -version | head -n 1)"
   package_names=(at-spi2-core dbus-x11 ffmpeg gnome-shell gnome-session gnome-screenshot libgtk-3-dev libwebkit2gtk-4.1-dev python3-pyatspi xdotool xvfb)
   if [[ "$session_slug" == "wayland" ]]; then package_names+=(ydotool ydotoold); fi
+  if [[ "$profile" == "Fedora current" ]]; then
+    package_summary="$(rpm -qa | sort)"
+    export SHELL_FEDORA_VERSION_ID="$(source /etc/os-release; echo "$VERSION_ID")"
+  else
   package_summary="$(dpkg-query -W -f='${binary:Package}=${Version}\n' "${package_names[@]}" 2>/dev/null | sort)"
+  fi
   python3 - "$diagnostics" "$profile" "$session" "$gnome_version" "$webkit_version" "$ffmpeg_version" "$package_summary" <<'PY'
 import json, sys
 from pathlib import Path
@@ -64,7 +76,7 @@ Path(path).write_text(json.dumps({
     "webkitGtk": webkit,
     "ffmpeg": ffmpeg,
     "packages": packages.splitlines(),
-    "provisioning": "workflow-installed packages on the ubuntu-24.04 hosted runner",
+    "provisioning": "distribution-native packages in the declared host or guest",
 }, indent=2) + "\n", encoding="utf-8")
 PY
 }
@@ -101,11 +113,15 @@ run_in_session() {
   done
   xdpyinfo -display "$display" >/dev/null 2>&1 || { record_status "UNVERIFIED" "Nested X server did not start"; return 78; }
 
+  if [[ "$profile" == "Fedora current" ]]; then
+    export SHELL_FEDORA_VERSION_ID="$(source /etc/os-release; echo "$VERSION_ID")"
+  fi
   export XDG_RUNTIME_DIR="$runtime_dir"
   export XDG_CURRENT_DESKTOP=GNOME
   export NO_AT_BRIDGE=0
   export GDK_BACKEND="${session_slug}"
   export GDK_SCALE=1
+  if [[ "${SHELL_LINUX_GUEST:-}" == 1 ]]; then export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1; fi
   export SHELL_SESSION="$profile-$session"
   export SHELL_TOOLCHAIN_PYTHON="$(python3 --version 2>&1)"
   export SHELL_DISPLAY_SCALE="1"
@@ -118,8 +134,12 @@ run_in_session() {
     export S03_WAYLAND_INPUT="$PWD/ci/linux/wayland-input.sh"
     export S03_WAYLAND_INPUT_BACKEND=uinput
     export YDOTOOLD_BIN="$(command -v ydotoold || true)"
-    export YDOTOOL_BIN="$(command -v ydotool || true)"
-    if [[ -z "$YDOTOOLD_BIN" ]] || ! timeout 5 "$YDOTOOLD_BIN" --help 2>&1 | grep -q -- --socket-path; then
+    export SHELL_YDOTOOL_REAL="$(command -v ydotool || true)"
+    export YDOTOOL_BIN="$PWD/ci/linux/ydotool-compat.sh"
+    # Ubuntu 24.04 ships the older /tmp/.ydotool_socket protocol. Record
+    # capabilities and support both protocols instead of skipping the cell.
+    timeout 5 "$YDOTOOLD_BIN" --help >"${shell_log}.input-help" 2>&1 || true
+    if [[ -z "$YDOTOOLD_BIN" ]]; then
       record_status "UNVERIFIED" "Distro ydotoold lacks the socket-path protocol required by the Wayland input adapter."
       return 78
     fi
@@ -141,7 +161,26 @@ run_in_session() {
     export GDK_BACKEND="$1"
     log="$2"
     shift 2
+    shell_pid=""
+    input_daemon_pid=""
+    pipewire_pid=""
+    wireplumber_pid=""
+    stop_capture_services() {
+      if [[ -n "$shell_pid" ]]; then kill "$shell_pid" 2>/dev/null || true; wait "$shell_pid" 2>/dev/null || true; fi
+      if [[ -n "$input_daemon_pid" ]]; then
+        sudo --non-interactive pkill -x ydotoold 2>/dev/null || true
+        wait "$input_daemon_pid" 2>/dev/null || true
+      fi
+      for process_id in "$wireplumber_pid" "$pipewire_pid"; do
+        if [[ -n "$process_id" ]]; then kill "$process_id" 2>/dev/null || true; wait "$process_id" 2>/dev/null || true; fi
+      done
+    }
+    trap stop_capture_services EXIT
     if [[ "$XDG_SESSION_TYPE" == "wayland" ]]; then
+      pipewire >"${log}.pipewire" 2>&1 &
+      pipewire_pid=$!
+      wireplumber >"${log}.wireplumber" 2>&1 &
+      wireplumber_pid=$!
       export WAYLAND_DISPLAY=wayland-0
       gnome-shell --nested --wayland --display-server >"$log" 2>&1 &
     else
@@ -156,26 +195,30 @@ run_in_session() {
     done
     if [[ "$ready" != 1 ]]; then
       cat "$log" >&2 || true
-      kill "$shell_pid" 2>/dev/null || true
       exit 78
     fi
     export SHELL_GNOME_SESSION_READY=1
     export SHELL_GNOME_VERSION="$(gnome-shell --version | tr -d '\''\r'\'')"
     if [[ "$XDG_SESSION_TYPE" == "wayland" ]]; then
       socket="$XDG_RUNTIME_DIR/.ydotool_socket"
-      sudo --non-interactive "$YDOTOOLD_BIN" --socket-path="$socket" --socket-own="$(id -u):$(id -g)" --socket-perm=0600 >"${log}.input" 2>&1 &
+      if grep -q -- --socket-path "${log}.input-help"; then
+        sudo --non-interactive "$YDOTOOLD_BIN" --socket-path="$socket" --socket-own="$(id -u):$(id -g)" --socket-perm=0600 >"${log}.input" 2>&1 &
+      else
+        export SHELL_YDOTOOL_LEGACY=1
+        socket=/tmp/.ydotool_socket
+        sudo --non-interactive "$YDOTOOLD_BIN" >"${log}.input" 2>&1 &
+      fi
       input_daemon_pid=$!
       export YDOTOOL_SOCKET="$socket"
       ready=0
       for _ in {1..40}; do
-        if [[ -S "$socket" ]] && ydotool key 1:1 1:0 >/dev/null 2>&1; then ready=1; break; fi
+        if [[ -S "$socket" ]]; then sudo --non-interactive chown "$(id -u):$(id -g)" "$socket"; fi
+        if [[ -S "$socket" ]] && "$YDOTOOL_BIN" key 1:1 1:0 >/dev/null 2>&1; then ready=1; break; fi
         if ! kill -0 "$input_daemon_pid" 2>/dev/null; then break; fi
         sleep 0.25
       done
       if [[ "$ready" != 1 ]]; then
         cat "${log}.input" >&2 || true
-        kill "$shell_pid" 2>/dev/null || true
-        sudo --non-interactive pkill -x ydotoold 2>/dev/null || true
         exit 78
       fi
     fi
@@ -187,9 +230,6 @@ run_in_session() {
     set +e
     "$command" "$@"
     status=$?
-    kill "$shell_pid" 2>/dev/null || true
-    wait "$shell_pid" 2>/dev/null || true
-    if [[ "$XDG_SESSION_TYPE" == "wayland" ]]; then sudo --non-interactive pkill -x ydotoold 2>/dev/null || true; fi
     exit "$status"
   ' shell-session "$session_slug" "$shell_log" "$@"
 }

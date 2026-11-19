@@ -15,6 +15,8 @@ if target in ("macos", "ios"):
     commands += [["xcode-select", "-p"], ["xcodebuild", "-version"], ["xcrun", "--find", "simctl"], ["ffmpeg", "-version"]]
 if target == "ios":
     commands += [["xcrun", "simctl", "list", "runtimes", "--json"], ["xcrun", "simctl", "list", "devices", "available", "--json"]]
+if target == "windows":
+    commands += [["ffmpeg", "-version"], ["ffprobe", "-version"]]
 if target == "android":
     commands += [["java", "-version"], ["sdkmanager", "--version"], ["avdmanager", "list", "device"], ["adb", "--version"], ["emulator", "-version"], ["emulator", "-accel-check"]]
 if target == "linux":

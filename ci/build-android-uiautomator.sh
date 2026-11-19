@@ -18,8 +18,8 @@ cat >"$init_script" <<EOF
 allprojects {
     afterEvaluate { project ->
         if (project.path == ":app" && project.plugins.hasPlugin("com.android.application")) {
-            project.android.compileSdk = 35
-            project.android.buildToolsVersion = "35.0.0"
+            project.android.compileSdk = 36
+            project.android.buildToolsVersion = "36.0.0"
             project.android.defaultConfig.testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
             project.android.defaultConfig.testApplicationId = "org.example.shellspikes.mobile.test"
             project.android.sourceSets.getByName("androidTest").java.srcDirs += [
@@ -48,17 +48,30 @@ done < <(find "$app_module/build/outputs/apk/androidTest/universal" -type f -nam
 cp "${candidates[0]}" "$test_apk"
 
 sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
-aapt="${sdk_root}/build-tools/35.0.0/aapt"
+aapt="${sdk_root}/build-tools/36.0.0/aapt"
 [[ -x "$aapt" ]] || { echo "Pinned Android build-tools aapt is unavailable" >&2; exit 78; }
 badging="$("$aapt" dump badging "$test_apk")"
 grep -Fq "package: name='org.example.shellspikes.mobile.test'" <<<"$badging" || {
   echo "Instrumentation APK package does not match the pinned test package" >&2
   exit 78
 }
-grep -Fq "instrumentation: name='androidx.test.runner.AndroidJUnitRunner'" <<<"$badging" || {
-  echo "AndroidX instrumentation runner was not packaged" >&2
-  exit 78
-}
+# `dump badging` does not report instrumentation, even for a valid test APK.
+# Inspect the binary manifest's instrumentation element instead.
+manifest="$("$aapt" dump xmltree "$test_apk" AndroidManifest.xml)"
+printf '%s\n' "$badging" > "$output_dir/instrumentation-badging.txt"
+printf '%s\n' "$manifest" > "$output_dir/instrumentation-manifest.txt"
+python3 - "$manifest" <<'PYMANIFEST'
+import re, sys
+manifest = sys.argv[1]
+blocks = manifest.split("E: instrumentation")[1:]
+valid = False
+for block in blocks:
+    block = block.split("\n    E:", 1)[0]
+    valid |= (re.search(r'android:name[^=]*="androidx\.test\.runner\.AndroidJUnitRunner"', block) is not None
+              and re.search(r'android:targetPackage[^=]*="org\.example\.shellspikes\.mobile"', block) is not None)
+if not valid:
+    raise SystemExit("AndroidX instrumentation runner or target package was not packaged")
+PYMANIFEST
 
 sha256sum "$test_apk"
 printf '%s\n' "$test_apk"

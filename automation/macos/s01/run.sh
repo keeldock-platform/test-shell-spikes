@@ -89,6 +89,7 @@ else
       export S01_PERMISSION_PROMPT_PREFLIGHT=passed
       RESULT_BUNDLE="$EVIDENCE/recorder/s01-ui-tests.xcresult"
       rm -rf "$RESULT_BUNDLE"
+      python3 "$ROOT/ci/configure-xctest-environment.py" "$S01_XCODE_PROJECT" "$S01_XCODE_SCHEME" || exit 78
       set +e
       xcodebuild test \
         -project "$S01_XCODE_PROJECT" \

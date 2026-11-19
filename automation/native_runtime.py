@@ -1,5 +1,6 @@
 """Shared native transport and bounded ownership of a launched desktop process."""
 import io
+import json
 from pathlib import Path
 import re
 import time
@@ -70,3 +71,37 @@ def run_android(spike, method, case_id, evidence, env):
                 target.relative_to((evidence / 'recorder').resolve())
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(bundle.extractfile(member).read())
+
+
+def wait_desktop_ready(process, evidence, case_id, timeout=30):
+    """Distinguish process death, renderer startup failure, and native-driver failure."""
+    deadline = time.monotonic() + timeout
+    status = 'renderer-ready-timeout'
+    startup_errors = []
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            status = 'process-exited'
+            break
+        path = evidence / 'recorder/renderer-events.jsonl'
+        if path.is_file():
+            for line in path.read_text(encoding='utf-8-sig').splitlines():
+                try:
+                    row = json.loads(line)
+                except ValueError:
+                    continue  # The application may be appending the final line.
+                if row.get('caseId') != case_id:
+                    continue
+                detail = row.get('detail') or {}
+                if detail.get('name') in {'scenario-start-failed', 'host-selection-unavailable'}:
+                    startup_errors.append(detail)
+                if detail.get('phase') == 'scenario-ready':
+                    status = 'ready'
+                    break
+        if status == 'ready' or startup_errors:
+            break
+        time.sleep(0.1)
+    report = {'pid': process.pid, 'exitCode': process.poll(), 'status': status,
+              'caseId': case_id, 'rendererErrors': startup_errors}
+    (evidence / 'recorder/desktop-readiness.json').write_text(json.dumps(report, indent=2) + '\n')
+    print(json.dumps(report), flush=True)
+    return status == 'ready'

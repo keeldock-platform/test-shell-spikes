@@ -10,9 +10,15 @@ New-Item -ItemType Directory -Force -Path $recorder | Out-Null
 $videoRef = 'video/capture.mkv'
 $pidCondition = New-Object System.Windows.Automation.PropertyCondition(
     [System.Windows.Automation.AutomationElement]::ProcessIdProperty, [int]$env:SHELL_APP_PID)
-$root = [System.Windows.Automation.AutomationElement]::RootElement.FindFirst(
-    [System.Windows.Automation.TreeScope]::Children, $pidCondition)
-if ($null -eq $root) { throw 'Launched PID has no UIAutomation window' }
+$root = $null
+$windowDeadline = (Get-Date).AddSeconds(30)
+do {
+    $root = [System.Windows.Automation.AutomationElement]::RootElement.FindFirst(
+        [System.Windows.Automation.TreeScope]::Children, $pidCondition)
+    if ($null -ne $root) { break }
+    Start-Sleep -Milliseconds 200
+} while ((Get-Date) -lt $windowDeadline)
+if ($null -eq $root) { throw 'Launched PID has no UIAutomation window; see desktop-launch.log' }
 $all = [System.Windows.Automation.TreeScope]::Descendants
 $condition = [System.Windows.Automation.Condition]::TrueCondition
 
@@ -59,7 +65,7 @@ function Save-Tree([string]$Name) {
 $deadline = (Get-Date).AddSeconds(30)
 $ready = $false
 while ((Get-Date) -lt $deadline) {
-    if (Find-Name 'Ready') { $ready = $true; break }
+    if (Find-Name "Ready: S10: $CaseId") { $ready = $true; break }
     Start-Sleep -Milliseconds 250
 }
 Save-Tree 'native-tree-before.txt'

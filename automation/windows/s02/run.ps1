@@ -30,8 +30,29 @@ function Write-ResultsEnvelope([object[]]$Rows = @()) {
     }
 }
 
+function Stop-OwnedApp {
+    if (-not $script:OwnsProcess -or -not $script:Process) { return }
+    try {
+        if (-not $script:Process.HasExited) {
+            $recorder = Join-Path $script:EvidenceRoot 'recorder'
+            New-Item -ItemType Directory -Force -Path $recorder | Out-Null
+            New-Item -ItemType File -Force -Path (Join-Path $recorder 'shutdown-request') | Out-Null
+            $deadline = [DateTime]::UtcNow.AddSeconds(5)
+            while (-not $script:Process.HasExited -and [DateTime]::UtcNow -lt $deadline) {
+                if (Test-Path (Join-Path $recorder 'shutdown-flushed')) { break }
+                Start-Sleep -Milliseconds 50
+            }
+            if (-not $script:Process.HasExited) { $script:Process.Kill() }
+            if (-not $script:Process.WaitForExit(10000)) { throw 'Owned S02 process did not stop' }
+        }
+    } finally {
+        $script:OwnsProcess = $false
+    }
+}
+
 trap {
     $failure = $_.Exception.Message
+    Stop-OwnedApp
     Write-ResultsEnvelope
     [Console]::Error.WriteLine("S02 automation stopped: $failure")
     exit 2
@@ -71,6 +92,7 @@ $script:Assertions = [System.Collections.Generic.List[object]]::new()
 $script:Sequence = 0
 $script:CurrentCase = ''
 $script:Process = $null
+$script:OwnsProcess = $false
 $script:Window = $null
 $script:RestartAfterClose = $false
 
@@ -136,7 +158,19 @@ function Wait-AppWindow([int]$AppProcessId, [int]$TimeoutSeconds = 30) {
         if ($null -ne $window) { return $window }
         Start-Sleep -Milliseconds 200
     } while ([DateTime]::UtcNow -lt $deadline)
-    throw "No top-level UI Automation window found for process $AppProcessId."
+    $owned = Get-Process -Id $AppProcessId -ErrorAction SilentlyContinue
+    $probe = [ordered]@{
+        processId = $AppProcessId
+        processAlive = ($null -ne $owned)
+        mainWindowHandle = if ($owned) { $owned.MainWindowHandle.ToInt64() } else { $null }
+        sessionId = if ($owned) { $owned.SessionId } else { $null }
+        diagnostic = 'Process state at UI Automation window timeout'
+    }
+    $probeDirectory = Join-Path $script:EvidenceRoot 'recorder'
+    New-Item -ItemType Directory -Force -Path $probeDirectory | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $probeDirectory 's02-startup-window-probe.json'),
+        ($probe | ConvertTo-Json -Depth 5), [System.Text.UTF8Encoding]::new($false))
+    throw "No top-level UI Automation window found for process $AppProcessId; see recorder/s02-startup-window-probe.json."
 }
 
 function Start-OrAttachApp {
@@ -147,7 +181,12 @@ function Start-OrAttachApp {
         return
     }
     else {
-        $script:Process = Start-Process -FilePath $AppPath -PassThru
+        $launchLog = Join-Path $script:EvidenceRoot 'recorder'
+        New-Item -ItemType Directory -Force -Path $launchLog | Out-Null
+        $script:Process = Start-Process -FilePath $AppPath -PassThru `
+            -RedirectStandardError (Join-Path $launchLog 's02-app.stderr.log') `
+            -RedirectStandardOutput (Join-Path $launchLog 's02-app.stdout.log')
+        $script:OwnsProcess = $true
         try {
             if (-not $script:Process.WaitForInputIdle(30000)) {
                 Write-Event 'process-input-idle-timeout' @{ processId = $script:Process.Id }
@@ -652,7 +691,7 @@ function Invoke-OneCase($Case) {
                 Write-Event 'native-close-guard' @{ bounds = (Get-Rect $guard) }
                 $discard = Find-ByName 'Discard synthetic work and close'; [void](Click-Element $discard)
                 Start-Sleep -Milliseconds 500
-                if ($script:Process -and -not $script:Process.HasExited) { $script:Process.WaitForExit(10000) | Out-Null }
+                if ($script:Process -and -not $script:Process.HasExited -and -not $script:Process.WaitForExit(10000)) { throw 'Native Close did not stop the owned app before relaunch' }
                 $script:RestartAfterClose = $true
                 Start-OrAttachApp
                 $anchor2 = Open-ByPointer 'S02 empty title bar'; $menu2 = Wait-ActiveMenu
@@ -688,7 +727,7 @@ function Invoke-OneCase($Case) {
                 if ($null -eq $guard) { throw 'Fallback Close did not reach the mock close guard.' }
                 $discard = Find-ByName 'Discard synthetic work and close'; [void](Click-Element $discard)
                 Start-Sleep -Milliseconds 500
-                if ($script:Process -and -not $script:Process.HasExited) { $script:Process.WaitForExit(10000) | Out-Null }
+                if ($script:Process -and -not $script:Process.HasExited -and -not $script:Process.WaitForExit(10000)) { throw 'Native Close did not stop the owned app before relaunch' }
                 $script:RestartAfterClose = $true
                 Start-OrAttachApp; Set-MenuMode 'kit'
                 $anchor2 = Open-ByPointer 'S02 empty title bar'; $menu2 = Wait-ActiveMenu
@@ -756,6 +795,7 @@ $index = [ordered]@{
 }
 $index | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $script:EvidenceRoot 'index.json') -Encoding utf8
 
+Stop-OwnedApp
 if (@($script:Assertions | Where-Object { $_.verdict -eq 'FAIL' }).Count -gt 0) { exit 1 }
 exit 0
 

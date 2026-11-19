@@ -49,6 +49,7 @@ def audit_hashes(root: Path) -> dict:
         return {"checkedFiles": 0, "errors": ["hashes.sha256 could not be read"]}
     if not lines:
         return {"checkedFiles": 0, "errors": ["hashes.sha256 is empty"]}
+    hashed_paths = set()
     for line in lines:
         digest, separator, reference = line.partition("  ")
         path = (root / reference).resolve()
@@ -56,9 +57,13 @@ def audit_hashes(root: Path) -> dict:
                 or not path.is_relative_to(root.resolve()) or not path.is_file()):
             errors.append(f"invalid hash entry: {reference}")
             continue
+        hashed_paths.add(path)
         checked += 1
         if sha256(path) != digest:
             errors.append(f"hash mismatch: {reference}")
+    for path in root.rglob("*"):
+        if path.is_file() and path.name != "hashes.sha256" and path.resolve() not in hashed_paths:
+            errors.append(f"file missing from hash manifest: {path.relative_to(root).as_posix()}")
     return {"checkedFiles": checked, "errors": errors}
 
 
@@ -306,6 +311,45 @@ def presentation_calibration_report(source):
     return rows
 
 
+def verify_cell_evidence(artifact_root, cell, hash_audit, source_errors):
+    """Verify recorded execution/integrity separately from assertion qualification."""
+    reasons = list(source_errors) + list(hash_audit["errors"])
+    completed = []
+    event_path = artifact_root / "events.jsonl"
+    try:
+        for line in event_path.read_text(encoding="utf-8-sig").splitlines():
+            event = json.loads(line)
+            if event.get("event") == "scenario-finished" and type(event.get("automationExit")) is int:
+                spike, case_id = str(event.get("spike")), str(event.get("caseId"))
+                if case_id in {".", ".."} or not re.fullmatch(r"s[0-9]+", spike) or not re.fullmatch(r"[A-Za-z0-9_.-]+", case_id):
+                    raise ValueError("Invalid case path in execution event")
+                scenario = artifact_root / "spikes" / spike / case_id
+                env = load_json(scenario / "environment.json")
+                assertions = load_json(artifact_root / "cells" / cell / "assertions.json").get("results")
+                if not isinstance(assertions, list) or not assertions or any(
+                    not isinstance(row, dict) or row.get("verdict") not in {"PASS", "FAIL", "UNVERIFIED"}
+                    for row in assertions
+                ):
+                    raise ValueError("Invalid cell assertion schema")
+                if cell_name(env) != cell:
+                    continue
+                # Native trees/readbacks must be present; emitter-only manifests cannot verify.
+                native = [p for p in (scenario / "recorder").rglob("*") if p.is_file()
+                          and p.stat().st_size and any(token in p.name for token in
+                          ("native-tree", "accessibility", "native-readback", "startup-tree"))]
+                if native:
+                    completed.append({"spike": event.get("spike"), "caseId": event.get("caseId"),
+                                      "automationExit": event["automationExit"],
+                                      "nativeEvidence": [p.relative_to(artifact_root).as_posix() for p in native]})
+    except (OSError, ValueError, TypeError) as error:
+        reasons.append(f"Execution evidence unavailable: {error}")
+    if not completed:
+        reasons.append("No completed case with recorded native evidence.")
+    return {"status": "UNVERIFIED" if reasons else "VERIFIED",
+            "scope": "source SHA, uploader hashes, schema ingestion and recorded native execution; assertion verdicts remain separate",
+            "executedCases": completed, "reasons": reasons}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=Path, default=Path("collected"))
@@ -509,6 +553,17 @@ def main() -> int:
     all_observed_shas = sorted({sha for values in observed_source_shas.values() for sha in values})
     summary = {
         "schemaVersion": 2,
+        "evidenceVerification": {
+            cell: verify_cell_evidence(cell_artifacts[cell], cell,
+                                      artifact_hashes[cell_artifacts[cell].relative_to(source).as_posix()],
+                                      cell_source_mismatches.get(cell, []) + [
+                                          problem for problem in problems
+                                          if problem.startswith(cell + ":") or problem.startswith(cell + "/")
+                                      ])
+            if cell in cell_artifacts and any(row["cell"] == cell for row in ingestion)
+            else {"status": "UNVERIFIED", "reasons": ["No valid cell manifest ingested."]}
+            for cell in REQUIRED_CELLS
+        },
         "ingestion": ingestion,
         "artifactHashes": artifact_hashes,
         "sourceSha": all_observed_shas[0] if len(all_observed_shas) == 1 else None,

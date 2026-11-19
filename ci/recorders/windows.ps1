@@ -17,7 +17,11 @@ if ($Action -eq "start") {
 } else {
   if (Test-Path $pidFile) {
     $recorderPid = [int](Get-Content -Raw $pidFile)
-    Stop-Process -Id $recorderPid -ErrorAction SilentlyContinue
+    $ownedRecorder = Get-Process -Id $recorderPid -ErrorAction SilentlyContinue
+    if ($ownedRecorder -and -not $ownedRecorder.HasExited) {
+      $ownedRecorder.Kill()
+      if (-not $ownedRecorder.WaitForExit(10000)) { throw "Recorder did not stop before hash finalization" }
+    }
     Remove-Item -Force $pidFile
   }
 }

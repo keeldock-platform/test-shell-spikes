@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "decision": "Coordinator A5, 2026-11-19: discovery authorised through run 6; attempt 1 only",
+  "decision": "Coordinator A5, 2026-11-19: discovery authorised through run 7; attempt 1 only",
   "ref": "refs/heads/shell-spikes/integration-1118",
   "runNumbers": [
     1,
@@ -8,7 +8,8 @@
     3,
     4,
     5,
-    6
+    6,
+    7
   ],
   "runAttempt": 1,
   "installation": "official stable channels for other platforms; Android uses bundled WebView from official sdkmanager image (decision C, 2026-11-19)",

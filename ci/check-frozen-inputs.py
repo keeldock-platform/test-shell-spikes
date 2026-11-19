@@ -63,8 +63,8 @@ def main() -> int:
         "androidxJunitExtension": "1.3.0",
         "androidxUiAutomator": "2.4.0",
         "junit": "4.13.2",
-        "compileSdk": 35,
-        "buildTools": "35.0.0",
+        "compileSdk": 36,
+        "buildTools": "36.0.0",
     }
     if any(uiautomator.get(key) != value for key, value in expected_uiautomator.items()):
         unresolved.append(("ci/environment-lock.json.android.uiAutomator", "AndroidX instrumentation APK and direct test dependencies must match the reviewed exact pins"))

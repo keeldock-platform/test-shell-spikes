@@ -350,6 +350,7 @@ def build_android_uiautomator() -> None:
             os.environ.pop(key, None)
         return
     log.write_text(result.stdout + result.stderr, encoding="utf-8")
+    print("Android instrumentation build probe:\n" + (result.stdout + result.stderr)[-12000:], flush=True)
     if result.returncode == 0 and apk.is_file():
         try:
             install = subprocess.run(

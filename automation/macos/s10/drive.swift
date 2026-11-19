@@ -41,9 +41,15 @@ func press(_ element: AXUIElement) -> Bool {
 }
 
 let running = NSWorkspace.shared.runningApplications
-let appElement = running.first(where: { String($0.processIdentifier) == ProcessInfo.processInfo.environment["SHELL_APP_PID"] })
-    .map { AXUIElementCreateApplication($0.processIdentifier) }
-let appRows = appElement.map(flatten) ?? []
+let appProcess = running.first(where: { String($0.processIdentifier) == ProcessInfo.processInfo.environment["SHELL_APP_PID"] })
+_ = appProcess?.activate(options: [.activateIgnoringOtherApps])
+let appElement = appProcess.map { AXUIElementCreateApplication($0.processIdentifier) }
+var appRows = appElement.map(flatten) ?? []
+let readyDeadline = Date(timeIntervalSinceNow: 10)
+while !appRows.contains(where: { $0.1.contains("Ready: S10:") }) && Date() < readyDeadline {
+    usleep(100_000)
+    appRows = appElement.map(flatten) ?? []
+}
 let ready = appRows.contains(where: { $0.1.localizedCaseInsensitiveContains("Ready") })
 let before = appRows.map(\.1).joined(separator: "\n") + "\n"
 try before.write(to: recorder.appendingPathComponent("native-tree-before.txt"), atomically: true, encoding: .utf8)
@@ -75,7 +81,15 @@ try? screenCapture.run(); screenCapture.waitUntilExit()
 
 var accepted: [String] = []
 for (index, colour) in ["#7C4DFF", "#28A77A"].enumerated() {
-    let nativeRows = flatten(AXUIElementCreateSystemWide())
+    var nativeRows = flatten(AXUIElementCreateSystemWide())
+    if let sliders = nativeRows.first(where: {
+        $0.1.localizedCaseInsensitiveContains("sliders") &&
+        ($0.1.contains("AXRadioButton") || $0.1.contains("AXButton"))
+    })?.0 {
+        _ = press(sliders)
+        usleep(300_000)
+        nativeRows = flatten(AXUIElementCreateSystemWide())
+    }
     try nativeRows.map(\.1).joined(separator: "\n").write(
         to: recorder.appendingPathComponent("native-tree-picker.txt"), atomically: true, encoding: .utf8)
     guard let field = nativeRows.first(where: {

@@ -126,10 +126,19 @@ pub fn plugin() -> TauriPlugin<Wry> {
             let state = S03State::default();
             app.manage(state.clone());
 
-            #[cfg(target_os = "linux")]
-            install_native_event_hook(app, state)?;
-
             Ok(())
+        })
+        .on_event(|app, event| {
+            #[cfg(target_os = "linux")]
+            if let tauri::RunEvent::Ready = event {
+                // Plugin setup precedes creation of the configured main webview.
+                if let Err(error) =
+                    install_native_event_hook(app, app.state::<S03State>().inner().clone())
+                {
+                    eprintln!("S03 native window initialization failed: {error}");
+                    app.exit(1);
+                }
+            }
         })
         .build()
 }

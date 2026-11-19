@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -41,6 +42,8 @@ def plan(target, output):
                  android['buildTools']['package'], android['ndk']['package'],
                  'platform-tools', 'emulator', android['systemImages'][api]['package']]]
     if target == 'linux':
+        if shutil.which('dnf'):
+            return [['sudo', 'dnf', 'upgrade', '-y', 'webkit2gtk4.1']]
         return [['bash', 'ci/apt-host.sh', 'update'], ['bash', 'ci/apt-host.sh', 'install', '--only-upgrade', '-y', 'libwebkit2gtk-4.1-0']]
     if target == 'windows':
         installer = output / 'MicrosoftEdgeWebview2Setup.exe'
@@ -133,7 +136,8 @@ def record_runtime(scenario, environment):
         result = subprocess.run(args, capture_output=True, text=True, timeout=60, check=False)
         return result.stdout.strip() if result.returncode == 0 else ''
     if target == 'linux':
-        paths = [Path(p) for p in command(['dpkg-query', '-L', 'libwebkit2gtk-4.1-0']).splitlines()
+        listing = ['rpm', '-ql', 'webkit2gtk4.1'] if shutil.which('dnf') else ['dpkg-query', '-L', 'libwebkit2gtk-4.1-0']
+        paths = [Path(p) for p in command(listing).splitlines()
                  if '.so' in p and Path(p).is_file()]
     elif target == 'macos':
         binary = Path('/System/Library/Frameworks/WebKit.framework/Versions/A/WebKit')

@@ -102,7 +102,7 @@ def main() -> int:
     (EVIDENCE / "events.jsonl").write_text(json.dumps({"event": "profile-not-provisioned", "cell": cell, "fallbacksRecorded": len(results)}) + "\n", encoding="utf-8")
     write_hashes()
     print(f"Recorded {len(results)} UNVERIFIED Linux assertions and per-case fallback selections for {cell}.")
-    return 0
+    return 78
 
 
 if __name__ == "__main__":

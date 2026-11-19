@@ -14,7 +14,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "automation"))
-from native_runtime import run_android, stop_desktop
+from native_runtime import run_android, stop_desktop, wait_desktop_ready
 
 DRIVERS = {
     "macos": ROOT / "automation/macos/s11/drive.swift",
@@ -140,15 +140,17 @@ def launch_desktop(platform: str, app: Path, env: dict[str, str]):
             ["/usr/libexec/PlistBuddy", "-c", "Print CFBundleExecutable", str(app / "Contents/Info.plist")],
             check=True, capture_output=True, text=True,
         ).stdout.strip()
-        return subprocess.Popen([str(app / "Contents/MacOS" / executable_name)], env=env, start_new_session=True)
-    return subprocess.Popen([str(app)], env=env, start_new_session=True)
+        with (Path(env["SHELL_EVIDENCE_DIR"]) / "recorder/desktop-launch.log").open("w") as log:
+            return subprocess.Popen([str(app / "Contents/MacOS" / executable_name)], env=env, start_new_session=True, stdout=log, stderr=subprocess.STDOUT)
+    with (Path(env["SHELL_EVIDENCE_DIR"]) / "recorder/desktop-launch.log").open("w") as log:
+        return subprocess.Popen([str(app)], env=env, start_new_session=True, stdout=log, stderr=subprocess.STDOUT)
 
 
 def run_native(platform: str, driver: Path, case_id: str, evidence: Path, env: dict[str, str]):
     if platform == "macos":
         return subprocess.run(["swift", str(driver), case_id, str(evidence)], env=env, timeout=360)
     if platform == "windows":
-        return subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(driver), case_id, str(evidence)], env=env, timeout=360)
+        return subprocess.run(["pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(driver), case_id, str(evidence)], env=env, timeout=360)
     if platform == "linux":
         return subprocess.run([sys.executable, str(driver), case_id, str(evidence)], env=env, timeout=360)
     if platform == "ios":
@@ -158,6 +160,9 @@ def run_native(platform: str, driver: Path, case_id: str, evidence: Path, env: d
         result_bundle = env.get("SHELL_IOS_XCRESULT_PATH")
         if not (project and scheme and destination and result_bundle):
             raise RuntimeError("The coordinator must provide the unsigned simulator test project, scheme, and destination.")
+        subprocess.run([sys.executable, str(ROOT / "ci/configure-xctest-environment.py"), project, scheme],
+                       env={**env, "SHELL_CASE_ID": case_id, "SHELL_EVIDENCE_DIR": str(evidence)},
+                       check=True, timeout=30)
         return subprocess.run([
             "xcodebuild", "test", "-project", project, "-scheme", scheme,
             "-destination", destination, "-resultBundlePath", result_bundle, "CODE_SIGNING_ALLOWED=NO",
@@ -166,8 +171,6 @@ def run_native(platform: str, driver: Path, case_id: str, evidence: Path, env: d
                          "SHELL_MOBILE_EVIDENCE_SUBPATH", "SHELL_MOBILE_BUNDLE_ID", "SHELL_IOS_XCRESULT_PATH"}],
             "-only-testing:AccentUITests/AccentUITests/testPolicyFixture",
         ], env={**env, "SHELL_CASE_ID": case_id, "SHELL_EVIDENCE_DIR": str(evidence)}, timeout=900)
-    if case_id == "S11-ANDROID-PROVIDER-UNAVAILABLE":
-        raise RuntimeError("This Android cell is an explicit unavailable-provider fallback; the native resource is not read.")
     return run_android("s11", "AccentUiAutomator#testWallpaperAccent", case_id, evidence, env)
 
 
@@ -205,7 +208,8 @@ def main():
             desktop_process = launch_desktop(args.platform, Path(app_path), env)
             env["SHELL_APP_PID"] = str(desktop_process.pid)
             (evidence / "recorder/desktop-process.json").write_text(json.dumps({"pid": desktop_process.pid}))
-            time.sleep(2)
+            if not wait_desktop_ready(desktop_process, evidence, case_id):
+                raise RuntimeError("Desktop startup failed; see desktop-readiness.json and desktop-launch.log")
         result = run_native(args.platform, DRIVERS[args.platform], case_id, evidence, env)
         if result.returncode != 0:
             write_status(evidence, args.platform, case_id, cell,

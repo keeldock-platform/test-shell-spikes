@@ -9,17 +9,17 @@ def finalize(root):
     path = root / 'recorder/observations.json'
     if not path.is_file():
         return
-    observation = json.loads(path.read_text())
+    observation = json.loads(path.read_text(encoding='utf-8-sig'))
     events = []
     event_path = root / 'recorder/renderer-events.jsonl'
     if event_path.is_file():
-        events = [json.loads(line) for line in event_path.read_text().splitlines() if line.strip()]
+        events = [json.loads(line) for line in event_path.read_text(encoding='utf-8-sig').splitlines() if line.strip()]
     sequences = {row.get('detail', {}).get('fields', {}).get('sequence') for row in events
                  if row.get('detail', {}).get('name') == 's11.native-event'} - {None, 0}
     links_path = root / 'recorder/presentation-links.jsonl'
-    links = [json.loads(line) for line in links_path.read_text().splitlines() if line.strip()] if links_path.is_file() else []
+    links = [json.loads(line) for line in links_path.read_text(encoding='utf-8-sig').splitlines() if line.strip()] if links_path.is_file() else []
     calibration_path = root / 'recorder/capture-index-status.json'
-    calibration = json.loads(calibration_path.read_text()) if calibration_path.is_file() else {}
+    calibration = json.loads(calibration_path.read_text(encoding='utf-8-sig')) if calibration_path.is_file() else {}
     if calibration.get('clockCalibrated') is not True:
         links = []
     matches = {row.get('sequence') for row in links if row.get('status') == 'correlated'}

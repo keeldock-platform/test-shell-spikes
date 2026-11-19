@@ -93,9 +93,8 @@ class RoundFive(unittest.TestCase):
                 dispatch.assert_called_once()
             if lane == 'accent':
                 with patch.object(driver, 'run_android') as dispatch:
-                    with self.assertRaises(RuntimeError):
-                        driver.run_native('android', driver.DRIVERS['android'], 'S11-ANDROID-PROVIDER-UNAVAILABLE', self.root, env)
-                    dispatch.assert_not_called()
+                    driver.run_native('android', driver.DRIVERS['android'], 'S11-ANDROID-PROVIDER-UNAVAILABLE', self.root, env)
+                    dispatch.assert_called_once()
 
     def test_android_build_paths_and_sdk_pins(self):
         build = (ROOT / 'ci/build-android-uiautomator.sh').read_text()
@@ -104,7 +103,7 @@ class RoundFive(unittest.TestCase):
         self.assertIn('src-tauri/gen/android/gradle/wrapper', lock['android']['uiAutomator']['gradleWrapper'])
         self.assertIn('--project-dir "$android_project"', build)
         self.assertIn(':app:assembleUniversalDebugAndroidTest', build)
-        self.assertIn('project.android.compileSdk = 35', build)
+        self.assertIn('project.android.compileSdk = 36', build)
         self.assertNotIn('/sdcard/', ''.join((ROOT / f'automation/android/{s}/{n}UiAutomator.java').read_text() for s,n in [('s10','Colour'),('s11','Accent')]))
 
     def test_ios_result_bundle_arguments_and_array_manifest(self):
@@ -182,8 +181,18 @@ class RoundFive(unittest.TestCase):
         wrapper = project / 'gradlew'
         wrapper.write_text("#!/bin/bash\nset -eu\n[[ \"$1\" == --project-dir ]]\ncd \"$2\"\n[[ \"${@: -1}\" == :app:assembleUniversalDebugAndroidTest ]]\nmkdir -p app/build/outputs/apk/androidTest/universal/debug\nprintf apk > app/build/outputs/apk/androidTest/universal/debug/app-debug-androidTest.apk\n")
         wrapper.chmod(0o755)
-        aapt = repo / 'sdk/build-tools/35.0.0/aapt'; aapt.parent.mkdir(parents=True)
-        aapt.write_text("#!/bin/sh\necho \"package: name='org.example.shellspikes.mobile.test'\"\necho \"instrumentation: name='androidx.test.runner.AndroidJUnitRunner'\"\n")
+        aapt = repo / 'sdk/build-tools/36.0.0/aapt'; aapt.parent.mkdir(parents=True)
+        aapt.write_text('''#!/bin/sh
+if [ "$2" = xmltree ]; then
+cat <<'MANIFEST'
+    E: instrumentation (line=1)
+      A: android:name(0x01010003)="androidx.test.runner.AndroidJUnitRunner"
+      A: android:targetPackage(0x01010021)="org.example.shellspikes.mobile"
+MANIFEST
+else
+  echo "package: name='org.example.shellspikes.mobile.test'"
+fi
+''')
         aapt.chmod(0o755)
         subprocess.run(['bash',str(repo / 'ci/build-android-uiautomator.sh')],
                        env={**os.environ,'ANDROID_SDK_ROOT':str(repo / 'sdk')}, check=True, capture_output=True)
@@ -322,6 +331,7 @@ class RoundFive(unittest.TestCase):
                  patch.object(sys,'argv',['runner','--platform','linux']), \
                  patch.object(driver,'launch_desktop',return_value=process), \
                  patch.object(driver,'run_native',side_effect=RuntimeError('native timeout')), \
+                 patch.object(driver,'wait_desktop_ready',return_value=True), \
                  patch.object(driver,'write_status'), patch.object(driver.time,'sleep'), \
                  patch.object(driver.subprocess,'run',return_value=subprocess.CompletedProcess([],0)), \
                  patch.object(driver,'stop_desktop') as stop:

@@ -33,6 +33,8 @@ public final class AccentUiAutomator {
         UiDevice device = UiDevice.getInstance(instrumentation);
         Intent launch = instrumentation.getContext().getPackageManager().getLaunchIntentForPackage(bundleId);
         if (launch == null) throw new IllegalStateException("The mobile shell has no launch activity.");
+        boolean providerFixture = caseId.equals("S11-ANDROID-PROVIDER-UNAVAILABLE");
+        launch.putExtra("shellSpikeAccentProviderUnavailable", providerFixture);
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         instrumentation.getContext().startActivity(launch);
         boolean ready = selectScenario(device, "S11", caseId);
@@ -53,9 +55,10 @@ public final class AccentUiAutomator {
         if (values.exists()) {
             try { visibleValues = new JSONObject(values.getText()); } catch (Exception ignored) { }
         }
-        boolean fallbackObserved = Build.VERSION.SDK_INT == 30 && ready
+        String fallbackReason = providerFixture ? "dynamic-colour-resource-unavailable" : "api-below-31";
+        boolean fallbackObserved = (Build.VERSION.SDK_INT == 30 || providerFixture) && ready
                 && !systemControl.exists() && hiddenStatus.exists()
-                && "api-below-31".equals(visibleValues.optString("unavailableReason"))
+                && fallbackReason.equals(visibleValues.optString("unavailableReason"))
                 && "system".equals(visibleValues.optString("storedAccent"))
                 && "brand".equals(visibleValues.optString("resolvedSource"))
                 && "#405066".equalsIgnoreCase(visibleValues.optString("appliedHex"))
@@ -74,7 +77,7 @@ public final class AccentUiAutomator {
 
 
         boolean changed = false;
-        if (ready && Build.VERSION.SDK_INT >= 31) {
+        if (ready && Build.VERSION.SDK_INT >= 31 && !providerFixture) {
             applyWallpaper(instrumentation, device, base, "first", 0);
             long afterId = WallpaperManager.getInstance(instrumentation.getTargetContext())
                     .getWallpaperId(WallpaperManager.FLAG_SYSTEM);
@@ -119,7 +122,10 @@ public final class AccentUiAutomator {
                 actual = "Reader-ready native permission-window samples=10; prompt observed=" + promptObserved + ".";
                 for (int sample = 0; sample < 10; sample++) refs.put("recorder/prompt-window-" + sample + ".xml");
             } else if (suffix.equals("BRAND")) {
-                actual = "Provider-unavailable injection is not available in this driver; System fallback remains selected.";
+                verdict = fallbackObserved && promptFree ? "PASS" : "UNVERIFIED";
+                actual = "Adapter resource callback throws; unavailable reason=" + fallbackReason
+                        + "; stored System resolves brand=" + fallbackObserved + "; prompt-free=" + promptFree
+                        + "; no wallpaper change is requested by this fixture.";
             } else if (suffix.equals("WALLPAPER") && Build.VERSION.SDK_INT >= 31) {
                 verdict = "UNVERIFIED";
                 actual = changed ? "Wallpaper readback changed; callback and host delivery await post-collection reduction." : "No distinguishable wallpaper-derived resource change was observed.";

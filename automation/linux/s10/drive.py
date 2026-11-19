@@ -80,10 +80,10 @@ def find(text, scope=desktop):
 
 def press(node):
     try:
-        for index in range(node.getAction().nActions):
-            name = node.getAction().getName(index).casefold()
+        for index in range(node.queryAction().nActions):
+            name = node.queryAction().getName(index).casefold()
             if name in {"click", "press", "activate"}:
-                node.getAction().doAction(index)
+                node.queryAction().doAction(index)
                 return True
     except Exception:
         pass

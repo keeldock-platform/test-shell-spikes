@@ -97,9 +97,12 @@ $screen = [System.Windows.Forms.Screen]::PrimaryScreen
 $graphics = [System.Drawing.Graphics]::FromHwnd([IntPtr]::Zero)
 $dpi = $graphics.DpiX
 $graphics.Dispose()
-$mode = Get-CimInstance Win32_VideoController | Where-Object { $_.CurrentHorizontalResolution -gt 0 } | Select-Object -First 1
-$runtimeRoot = Join-Path ${env:ProgramFiles(x86)} "Microsoft\EdgeWebView\Application"
-$runtime = Get-ChildItem $runtimeRoot -Directory -ErrorAction SilentlyContinue | Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
+$mode = Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | Where-Object { $_.CurrentHorizontalResolution -gt 0 } | Select-Object -First 1
+$runtime = @($env:ProgramFiles, ${env:ProgramFiles(x86)}, $env:LOCALAPPDATA) |
+  Where-Object { $_ } | ForEach-Object {
+    Get-ChildItem (Join-Path $_ "Microsoft\EdgeWebView\Application") -Directory -ErrorAction SilentlyContinue
+  } | Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' } |
+  Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
 [pscustomobject]@{
   width = $screen.Bounds.Width
   height = $screen.Bounds.Height
@@ -109,13 +112,21 @@ $runtime = Get-ChildItem $runtimeRoot -Directory -ErrorAction SilentlyContinue |
   windowsBuild = [System.Environment]::OSVersion.Version.ToString()
 } | ConvertTo-Json -Compress
 '''
-    raw = command(["pwsh", "-NoProfile", "-Command", script])
+    try:
+        probe = subprocess.run(["pwsh", "-NoProfile", "-NonInteractive", "-STA", "-Command", script],
+                               capture_output=True, text=True, timeout=30, check=False)
+        raw = probe.stdout.strip()
+        diagnostics = {"exitCode": probe.returncode, "stdout": raw, "stderr": probe.stderr}
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raw = ""
+        diagnostics = {"error": str(error)}
     try:
         data = json.loads(raw) if raw else {}
     except json.JSONDecodeError:
         data = {}
     resolution = f"{data['width']}x{data['height']}" if data.get("width") and data.get("height") else None
-    return ({"resolution": resolution, "scale": data.get("scale"), "refreshHz": data.get("refreshHz")}, {"windowsNative": data})
+    return ({"resolution": resolution, "scale": data.get("scale"), "refreshHz": data.get("refreshHz")},
+            {"windowsNative": data, "windowsProbe": diagnostics})
 
 
 def webview_version(target: str) -> tuple[str | None, dict]:

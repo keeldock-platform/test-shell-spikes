@@ -112,10 +112,14 @@ jobs:
         run: |
           rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
           npm ci --ignore-scripts
+          bash ci/install-apple-recorder.sh
       - name: Probe macOS runner tools
         run: python3 ci/probe-runner.py macos
       - name: Run shared desktop and serial macOS cases
         run: bash ci/run-macos.sh
+      - name: Reject jobs without executed native observations
+        if: always()
+        run: python ci/verify-execution.py
       - name: Finalize evidence hashes after cleanup
         if: always()
         run: python ci/hash-evidence.py
@@ -150,7 +154,7 @@ jobs:
           if ($env:GITHUB_REF -ne "refs/heads/shell-spikes/integration-1118") { throw "dispatch ref is not the approved branch" }
           if ($env:GITHUB_REF_TYPE -ne "branch") { throw "dispatch must target a branch" }
           if ((git rev-parse HEAD).Trim() -ne $env:FROZEN_SHA) { throw "checkout does not match frozen SHA" }
-      - run: py -3 ci/prepare-evidence.py
+      - run: python ci/prepare-evidence.py
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 24.11.1
@@ -162,11 +166,15 @@ jobs:
         run: |
           rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
           npm ci --ignore-scripts
+          ./ci/install-windows-recorder.ps1
       - name: Probe Windows runner tools
         run: python ci/probe-runner.py windows
       - name: Run desktop Windows cases
         shell: pwsh
         run: ./ci/run-windows.ps1
+      - name: Reject jobs without executed native observations
+        if: always()
+        run: python ci/verify-execution.py
       - name: Finalize evidence hashes after cleanup
         if: always()
         run: python ci/hash-evidence.py
@@ -201,7 +209,7 @@ jobs:
           if ($env:GITHUB_REF -ne "refs/heads/shell-spikes/integration-1118") { throw "dispatch ref is not the approved branch" }
           if ($env:GITHUB_REF_TYPE -ne "branch") { throw "dispatch must target a branch" }
           if ((git rev-parse HEAD).Trim() -ne $env:FROZEN_SHA) { throw "checkout does not match frozen SHA" }
-      - run: py -3 ci/prepare-evidence.py
+      - run: python ci/prepare-evidence.py
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 24.11.1
@@ -213,11 +221,15 @@ jobs:
         run: |
           rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
           npm ci --ignore-scripts
+          ./ci/install-windows-recorder.ps1
       - name: Probe Windows ARM64 runner tools
         run: python ci/probe-runner.py windows
       - name: Run ARM64 native system-menu and Snap cases
         shell: pwsh
         run: ./ci/run-windows-client.ps1
+      - name: Reject jobs without executed native observations
+        if: always()
+        run: python ci/verify-execution.py
       - name: Finalize evidence hashes after cleanup
         if: always()
         run: python ci/hash-evidence.py
@@ -288,8 +300,11 @@ jobs:
           npm ci --ignore-scripts
       - name: Probe Linux runner tools
         run: python3 ci/probe-runner.py linux
-      - name: Provision Ubuntu 24.04 GNOME session or record the declared fallback
+      - name: Provision the requested Linux distribution and GNOME session
         run: bash ci/run-linux.sh
+      - name: Reject jobs without executed native observations
+        if: always()
+        run: python ci/verify-execution.py
       - name: Finalize evidence hashes after cleanup
         if: always()
         run: python ci/hash-evidence.py
@@ -336,10 +351,14 @@ jobs:
           rustup target add aarch64-apple-ios-sim
           cargo install tauri-cli --version 2.12.5 --locked
           npm ci --ignore-scripts
+          bash ci/install-apple-recorder.sh
       - name: Probe iOS runner tools and installed simulators
         run: python3 ci/probe-runner.py ios
       - name: Build unsigned simulator wrapper and run iPhone and iPad cases serially
         run: bash ci/run-ios.sh
+      - name: Reject jobs without executed native observations
+        if: always()
+        run: python ci/verify-execution.py
       - name: Finalize evidence hashes after cleanup
         if: always()
         run: python ci/hash-evidence.py
@@ -405,6 +424,9 @@ jobs:
         run: python3 ci/probe-runner.py android
       - name: Run Android API-level cases
         run: bash ci/run-android.sh
+      - name: Reject jobs without executed native observations
+        if: always()
+        run: python ci/verify-execution.py
       - name: Finalize evidence hashes after cleanup
         if: always()
         run: python ci/hash-evidence.py

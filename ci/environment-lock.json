@@ -115,38 +115,42 @@
     {
       "distribution": "Ubuntu 26.04",
       "session": "X11",
-      "availability": "not-provisioned",
+      "availability": "provisioned",
       "fallbacks": {
         "s10": "hex field only"
-      }
+      },
+      "provisioning": "privileged official distribution container with nested GNOME/Mutter; image digest recorded per run"
     },
     {
       "distribution": "Ubuntu 26.04",
       "session": "Wayland",
-      "availability": "not-provisioned",
+      "availability": "provisioned",
       "fallbacks": {
         "s10": "hex field only",
         "s11": "System hidden; stored System resolves to brand"
-      }
+      },
+      "provisioning": "privileged official distribution container with nested GNOME/Mutter; image digest recorded per run"
     },
     {
       "distribution": "Fedora current",
       "session": "X11",
-      "availability": "not-provisioned",
+      "availability": "provisioned",
       "fallbacks": {
         "s03": "same-item kit menu",
         "s10": "hex field only"
-      }
+      },
+      "provisioning": "privileged official distribution container with nested GNOME/Mutter; image digest recorded per run"
     },
     {
       "distribution": "Fedora current",
       "session": "Wayland",
-      "availability": "not-provisioned",
+      "availability": "provisioned",
       "fallbacks": {
         "s03": "same-item kit menu",
         "s10": "hex field only",
         "s11": "System hidden; stored System resolves to brand"
-      }
+      },
+      "provisioning": "privileged official distribution container with nested GNOME/Mutter; image digest recorded per run"
     }
   ],
   "linuxHostPackages": {
@@ -211,11 +215,11 @@
       "versionSource": "emulator -version captured after selection"
     },
     "platform": {
-      "package": "platforms;android-35",
+      "package": "platforms;android-36",
       "revisionSource": "sdkmanager --list_installed output recorded after installation"
     },
     "buildTools": {
-      "package": "build-tools;35.0.0",
+      "package": "build-tools;36.0.0",
       "revisionSource": "sdkmanager --list_installed output recorded after installation"
     },
     "ndk": {
@@ -231,8 +235,8 @@
       "androidxUiAutomator": "2.4.0",
       "junit": "4.13.2",
       "gradleWrapper": "apps/test-shell-mobile/src-tauri/gen/android/gradle/wrapper/gradle-wrapper.properties",
-      "compileSdk": 35,
-      "buildTools": "35.0.0"
+      "compileSdk": 36,
+      "buildTools": "36.0.0"
     },
     "systemImages": {
       "30": {

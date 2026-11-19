@@ -493,6 +493,30 @@ def collect_mobile_renderer_events(platform_name: str, scenario: Path, case_id: 
                 pass
 
 
+def ios_attachment_relative_name(suggested: str) -> Path | None:
+    # xcresulttool removes slashes/extensions and appends repetition + UUID.
+    # Map only the explicitly named test attachments back to canonical paths.
+    known = ["recorder/observations.json", "recorder/native-tree.txt",
+             "recorder/native-tree-picker.txt", "recorder/page-accessibility.txt",
+             "recorder/manual-input-failure.txt", "events.jsonl",
+             "screens/ios-policy.png", "screens/ios-initial.png",
+             "screens/ios-picker-1.png", "screens/ios-picker-2.png",
+             "screens/ios-picker-dismiss.png"]
+    uuid = r"[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}"
+    for reference in known:
+        path = Path(reference)
+        stem = path.with_suffix("").as_posix().replace("/", "")
+        extension = r"(?:txt|jsonl)" if path.suffix == ".jsonl" else re.escape(path.suffix[1:])
+        if re.fullmatch(re.escape(stem) + r"_[0-9]+_" + uuid + r"\." + extension, suggested):
+            return path
+    path = Path(suggested)
+    if not path.is_absolute() and ".." not in path.parts and (
+        path.parts[:1] in (("screens",), ("recorder",)) or path.as_posix() == "events.jsonl"
+    ):
+        return path
+    return None
+
+
 def collect_ios_xctest_evidence(spike: str, scenario: Path) -> None:
     """Export named XCTest attachments from the case's retained result bundle."""
     if spike not in {"s10", "s11"}:
@@ -520,10 +544,11 @@ def collect_ios_xctest_evidence(spike: str, scenario: Path) -> None:
                 exported_name = attachment.get("exportedFileName")
                 if not isinstance(suggested, str) or not isinstance(exported_name, str):
                     continue
-                relative = Path(suggested)
-                allowed_attachment = relative.parts[:1] in (("screens",), ("recorder",)) or relative.as_posix() == "events.jsonl"
-                if relative.is_absolute() or ".." in relative.parts or not allowed_attachment:
+                relative = ios_attachment_relative_name(suggested)
+                if relative is None:
                     continue
+                if relative.as_posix() in copied:
+                    raise ValueError("Duplicate XCTest attachment for " + relative.as_posix())
                 source = (export_dir / exported_name).resolve()
                 try:
                     source.relative_to(export_dir.resolve())
@@ -552,7 +577,7 @@ def collect_ios_xctest_evidence(spike: str, scenario: Path) -> None:
                 encoding="utf-8",
             )
             return
-        except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError, TypeError):
+        except (OSError, subprocess.TimeoutExpired, ValueError, TypeError):
             pass
     (destination / "ios-xctest-evidence-transport.json").write_text(
         json.dumps({"status": "UNVERIFIED", "reason": "case XCTest result bundle or its attachment manifest was unavailable"}, indent=2) + "\n",
@@ -705,6 +730,15 @@ def main() -> int:
         raise SystemExit("checked-out source SHA does not match the supplied frozen dispatch SHA")
 
     cell = os.environ.get("SHELL_CELL", os.environ.get("GITHUB_JOB", "unknown"))
+    if platform_name == "macos" and os.environ.get("SHELL_MAC_DISPLAY_PROBE"):
+        # Recheck after XCTest and other hosted UI tooling have run.
+        # Configure and read back again before each case and its recorder start.
+        configured = subprocess.run([os.environ["SHELL_MAC_DISPLAY_PROBE"], "--configure"],
+                                    capture_output=True, text=True, timeout=30, check=False)
+        (scenario / "recorder/display-configuration.json").write_text(json.dumps({
+            "exitCode": configured.returncode, "stdout": configured.stdout,
+            "stderr": configured.stderr,
+        }, indent=2) + "\n")
     native_preflight = collect_native_preflight(platform_name, scenario)
     s01_displays: list[dict] = []
     if platform_name == "macos" and spike == "s01" and os.environ.get("SHELL_S01_DISPLAYS_JSON"):
@@ -812,6 +846,7 @@ def main() -> int:
     )
     recorder_executable = shutil.which(recorder_binary)
     recorder_hash = sha256(Path(recorder_executable)) if recorder_executable and Path(recorder_executable).is_file() else None
+    started = None
     if version_ok:
         try:
             record_capture_clock_sample(capture_clock_path, "start")
@@ -828,6 +863,8 @@ def main() -> int:
         "runtime": version_diagnostic,
         "executableSha256": recorder_hash,
         "diagnostic": "" if recorder_started else version_diagnostic or "Recorder preflight failed or the required capture tool is unavailable.",
+        "startExitCode": started.returncode if started else None,
+        "startOutput": (started.stdout + started.stderr)[-4000:] if started else None,
     }
     environment["recording"] = {
         "video": recorded_reference,
@@ -858,7 +895,9 @@ def main() -> int:
     recorder_stop_ok = recorder_started
     try:
         if platform_name == "linux" and spike == "s03" and app_path:
-            launched_app = subprocess.Popen([app_path], cwd=ROOT, env=os.environ.copy(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            with (scenario / "recorder/s03-app.log").open("w") as app_log:
+                launched_app = subprocess.Popen([app_path], cwd=ROOT, env=os.environ.copy(),
+                                               stdout=app_log, stderr=subprocess.STDOUT)
             os.environ["S03_APP_PID"] = str(launched_app.pid)
             time.sleep(1)
         if adapter is None:
@@ -1038,9 +1077,27 @@ def main() -> int:
     index = json.loads(index_path.read_text(encoding="utf-8")) if index_path.exists() else {"cases": []}
     index["cases"].append({"cell": cell, "spike": spike, "caseId": case_id, "assertions": [item.get("id") for item in results], "evidenceRoot": scenario.relative_to(evidence).as_posix()})
     index_path.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
-    write_hashes(evidence)
 
-    incomplete = any(item.get("verdict") == "UNVERIFIED" for item in results)
+    probe = {"platform": platform_name, "spike": spike, "caseId": case_id,
+             "automationExit": adapter_status, "recorderStarted": recorder_started,
+             "recorderStopped": recorder_stop_ok, "recorder": environment["recorder"],
+             "assertions": [{"id": row.get("id"), "verdict": row.get("verdict"),
+                             "laneVerdict": row.get("laneVerdict"), "actual": row.get("actual")}
+                            for row in results]}
+    probe["diagnosticLogs"] = {
+        str(path.relative_to(scenario)): path.read_text(encoding="utf-8-sig", errors="replace")[-4000:]
+        for path in (scenario / "video/capture.log", scenario / "recorder/s03-app.log",
+                     scenario / "recorder/s01-xcodebuild.log", scenario / "recorder/desktop-readiness.json",
+                     scenario / "recorder/driver-status.json", scenario / "recorder/ios-xctest-evidence-transport.json",
+                     scenario / "recorder/s08-probe.log", scenario / "recorder/s08-ready.log",
+                     scenario / "recorder/s02-startup-window-probe.json", scenario / "recorder/s02-app.stderr.log",
+                     scenario / "recorder/xctest-resolved-environment.json")
+        if path.is_file()
+    }
+    (scenario / "recorder/case-diagnostics.json").write_text(json.dumps(probe, indent=2) + "\n")
+    print("Native case probe: " + json.dumps(probe), flush=True)
+    write_hashes(evidence)
+    incomplete = any(item.get("verdict") in {"UNVERIFIED", "FAIL"} for item in results)
     return 1 if adapter_status or incomplete or not recorder_started else 0
 
 

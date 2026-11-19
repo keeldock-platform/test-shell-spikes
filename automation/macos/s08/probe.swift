@@ -189,6 +189,17 @@ final class Probe {
             if let value = predicate() { return value }
             RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.05))
         }
+        var nodes: [[String: String]] = []
+        func snapshot(_ node: AXUIElement, depth: Int) {
+            guard depth < 10 && nodes.count < 2000 else { return }
+            nodes.append(["role": stringAttribute(node, "AXRole") ?? "",
+                          "title": stringAttribute(node, "AXTitle") ?? "",
+                          "description": stringAttribute(node, "AXDescription") ?? "",
+                          "value": stringAttribute(node, "AXValue") ?? ""])
+            for child in attribute(node, "AXChildren") as? [AXUIElement] ?? [] { snapshot(child, depth: depth + 1) }
+        }
+        snapshot(application, depth: 0)
+        emit("timeout-native-tree", ["waitingFor": description, "nodes": nodes])
         throw ProbeFailure(description: "Timed out waiting for \(description)")
     }
 
@@ -250,7 +261,17 @@ final class Probe {
     }
 
     func sheets(for window: NativeWindow) -> [AXUIElement] {
-        attribute(window.element, "AXSheets") as? [AXUIElement] ?? []
+        var result = attribute(window.element, "AXSheets") as? [AXUIElement] ?? []
+        func collect(_ parent: AXUIElement, depth: Int) {
+            guard depth < 8 else { return }
+            for child in attribute(parent, "AXChildren") as? [AXUIElement] ?? [] {
+                if stringAttribute(child, "AXRole") == "AXSheet" {
+                    if !result.contains(where: { CFEqual($0, child) }) { result.append(child) }
+                } else { collect(child, depth: depth + 1) }
+            }
+        }
+        collect(window.element, depth: 0)
+        return result
     }
 
     func waitForSettings() throws -> NativeWindow {
@@ -528,7 +549,10 @@ final class Probe {
         try captureWholeDesktop("s08-geometry-restored.png")
         emitVerdict("S08-A09", expected: knownAssertions["S08-A09"]!, actual: "newInstance=\(newInstance); geometryRestored=\(geometryRestored)", pass: geometryRestored && newInstance)
 
-        let recreatedViewMarker = textValuePrefix("Page: Team; scroll: ") ?? ""
+        let recreatedViewMarker: String = try waitUntil("recreated Team page and saved scroll marker") {
+            guard let marker = self.textValuePrefix("Page: Team; scroll: "), marker == afterReopen else { return nil }
+            return marker
+        }
         let viewStateRestored = recreatedViewMarker == afterReopen && !recreatedViewMarker.hasSuffix("scroll: 0")
         let teamPose = find("Team") != nil && viewStateRestored
         observe("S08-A10", restored, extra: ["teamPose": teamPose, "pageScrollMarker": recreatedViewMarker, "matchesBeforeDestroy": viewStateRestored, "caseId": "S08-MAC-04-window-state-and-view-restore"])

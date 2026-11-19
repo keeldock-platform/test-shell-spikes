@@ -148,7 +148,7 @@ export async function registerSpike({ root, caseId, invoke, frame, record }) {
     });
 
     document.addEventListener("keydown", async (event) => {
-      if (event.key !== "," || !event.metaKey || event.repeat) return;
+      if ((event.code !== "Comma" && event.key !== ",") || !event.metaKey || event.repeat) return;
       event.preventDefault();
       if (event.altKey) {
         settingsView.hidden = false;

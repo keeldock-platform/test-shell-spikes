@@ -26,7 +26,7 @@ final class ColourUITests: XCTestCase {
         let caseMarker = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label CONTAINS[c] %@", "Ready: S10: \(caseId)"))
             .firstMatch
-        var selected = ready && caseMarker.waitForExistence(timeout: 30)
+        let selected = ready && caseMarker.waitForExistence(timeout: 30)
         let open = app.buttons["Open Appearance dialog"]
         if selected && open.waitForExistence(timeout: 10) { open.tap() }
 
@@ -38,23 +38,34 @@ final class ColourUITests: XCTestCase {
         var screenshots: [String: Data] = ["screens/ios-initial.png": XCUIScreen.main.screenshot().pngRepresentation]
         for value in ["#7C4DFF", "#28A77A"] {
             if selected && pickerControl.waitForExistence(timeout: 8) { pickerControl.tap() }
-            let hexField = app.textFields.matching(NSPredicate(format: "label CONTAINS[c] %@", "hex")).firstMatch
-            if selected && hexField.waitForExistence(timeout: 8) {
-                hexField.tap()
-                nativeTree = app.debugDescription
-                hexField.typeText(value)
+            // The page also has a field named HEX behind the native sheet.
+            // iOS exposes the native hex field on the Sliders tab.
+            let sliders = app.buttons["Sliders"]
+            if sliders.waitForExistence(timeout: 3) && sliders.isHittable { sliders.tap() }
+            let hexField = app.textFields.matching(NSPredicate(
+                format: "label CONTAINS[c] %@ AND label != %@", "hex", "HEX")).firstMatch
+            nativeTree = app.debugDescription
+            if selected && hexField.waitForExistence(timeout: 8) && hexField.isHittable {
+                hexField.clearAndEnterText(value.replacingOccurrences(of: "#", with: ""))
                 screenshots["screens/ios-picker-\(accepted.count + 1).png"] = XCUIScreen.main.screenshot().pngRepresentation
                 let accept = app.buttons.matching(NSPredicate(format:
                     "label CONTAINS[c] %@ OR label CONTAINS[c] %@ OR label CONTAINS[c] %@",
                     "Done", "Choose", "Select")).firstMatch
                 if accept.exists { accept.tap() }
                 let event = app.descendants(matching: .any)
-                    .matching(NSPredicate(format: "label CONTAINS[c] %@", "native-change")).firstMatch
+                    .matching(NSPredicate(format: "label CONTAINS[c] %@ AND label CONTAINS[c] %@",
+                                          "native-change", value.lowercased())).firstMatch
                 if event.waitForExistence(timeout: 3) { accepted.append(value.lowercased()) }
             }
         }
         try attachText("recorder/native-tree-picker.txt", nativeTree)
 
+        // Return from the native sheet and the existing Appearance dialog
+        // before starting the independent manual-input sequence.
+        let nativeDone = app.buttons["Done"]
+        if nativeDone.exists && nativeDone.isHittable { nativeDone.tap() }
+        let outerCancel = app.buttons["Cancel"]
+        if outerCancel.exists && outerCancel.isHittable { outerCancel.tap() }
         let hexInput = app.textFields["HEX"]
         var manualOk = false
         var shortHexOk = false
@@ -66,12 +77,17 @@ final class ColourUITests: XCTestCase {
             hexInput.tap(); hexInput.clearAndEnterText("#E0A526")
             app.buttons["Use HEX value"].tap(); app.buttons["Apply"].tap()
             manualOk = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] %@", "#e0a526")).firstMatch.exists
-            open.tap()
+            if open.waitForExistence(timeout: 5) && open.isHittable { open.tap() }
+            guard hexInput.waitForExistence(timeout: 5) && hexInput.isHittable else {
+                try attachText("recorder/manual-input-failure.txt", app.debugDescription)
+                XCTFail("Appearance HEX input did not reopen after Apply")
+                return
+            }
             hexInput.tap(); hexInput.clearAndEnterText("abc"); app.buttons["Use HEX value"].tap()
             shortHexOk = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] %@", "#aabbcc")).firstMatch.exists
             app.buttons["Cancel"].tap()
             cancelOk = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] %@", "#e0a526")).firstMatch.exists
-            open.tap()
+            if open.waitForExistence(timeout: 5) && open.isHittable { open.tap() }
             hexInput.tap(); hexInput.clearAndEnterText("#12XZ"); app.buttons["Use HEX value"].tap()
             invalidOk = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] %@", "Enter a colour")).firstMatch.exists
             app.buttons["Cancel"].tap()

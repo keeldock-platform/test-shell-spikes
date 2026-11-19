@@ -25,8 +25,12 @@ final class AccentUITests: XCTestCase {
         let ready = selected && readyMarker.waitForExistence(timeout: 30)
         let system = app.buttons["Use System accent"]
         let brand = app.buttons["Use brand accent"]
-        let status = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "System is hidden")).firstMatch
-        let hidden = ready && (!system.exists || !system.isHittable) && brand.isHittable && status.exists
+        let status = app.descendants(matching: .any).matching(NSPredicate(
+            format: "label CONTAINS[c] %@ AND label CONTAINS %@ AND label CONTAINS %@",
+            "System is hidden", "stored=system", "resolved=brand")).firstMatch
+        let statusObserved = status.waitForExistence(timeout: 10)
+        if brand.exists && !brand.isHittable { app.swipeUp() }
+        let hidden = ready && (!system.exists || !system.isHittable) && brand.isHittable && statusObserved
         let screenshot = XCUIScreen.main.screenshot().pngRepresentation
         let nativeTree = app.debugDescription
         try attach("screens/ios-policy.png", data: screenshot, type: "public.png")
@@ -49,6 +53,7 @@ final class AccentUITests: XCTestCase {
         let json = try JSONSerialization.data(withJSONObject: observation, options: [.prettyPrinted, .sortedKeys])
         try attach("recorder/observations.json", data: json, type: "public.json")
         XCTAssertTrue(ready, "The resolved S11 policy case marker was not visible.")
+        XCTAssertTrue(hidden, "The policy must hide System and expose stored=system; resolved=brand with the brand control available.")
     }
 
     private func selectScenario(_ app: XCUIApplication, spike: String, caseId: String) -> Bool {

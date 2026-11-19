@@ -56,6 +56,7 @@ export async function registerSpike({ root, caseId, invoke, frame, record }) {
     role: "region",
     "aria-label": "Empty header area",
     "data-s03-empty-header": "true",
+    tabindex: "0",
   });
   emptyHeader.style.minWidth = "180px";
   emptyHeader.style.height = "40px";

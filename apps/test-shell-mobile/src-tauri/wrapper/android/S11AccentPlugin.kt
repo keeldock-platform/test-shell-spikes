@@ -24,6 +24,13 @@ class S11AccentPlugin(private val activity: Activity) : Plugin(activity) {
         if (reader == null) {
             reader = AndroidAccentReader(
                 context = activity.applicationContext,
+                // Synthetic adapter fault fixture; never counted as an OS event.
+                readSystemAccent = { context ->
+                    if (activity.intent.getBooleanExtra("shellSpikeAccentProviderUnavailable", false)) {
+                        throw IllegalStateException("Synthetic dynamic-colour provider unavailable")
+                    }
+                    context.getColor(android.R.color.system_accent1_500)
+                },
                 publish = { update ->
                     latest = update
                     trigger("accent-update", update.toPayload())

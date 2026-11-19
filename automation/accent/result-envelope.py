@@ -14,7 +14,7 @@ VERDICTS = {"PASS", "FAIL", "UNVERIFIED"}
 
 def read_json(path: Path, fallback):
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError):
         return fallback
 
@@ -41,7 +41,7 @@ def has_source(root: Path, source: str) -> bool:
     if source == "frame-marker":
         return has_source(root, "events.jsonl") and has_source(root, "video")
     if source == "video":
-        return any(name.startswith("video/") and Path(name).suffix in {".mp4", ".mov", ".mkv"} for name in names)
+        return any(name.startswith("video/") and Path(name).suffix in {".mp4", ".mov", ".mkv", ".webm"} for name in names)
     if source == "screen":
         return any((name.startswith("screens/") and Path(name).suffix in {".png", ".jpg", ".jpeg"})
                    or (name.startswith("recorder/") and Path(name).suffix in {".png", ".jpg", ".jpeg"}) for name in names)
