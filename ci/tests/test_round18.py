@@ -40,6 +40,10 @@ elif name == 'timeout':
 elif name == 'chown':
     require(args[0] == '_apt:root')
     (pathlib.Path(args[1]) / '.apt-owner').touch()
+elif name == 'chmod':
+    # Run 15: the runner user may not change the mode of a directory it no longer owns.
+    require(not (pathlib.Path(args[-1]) / '.apt-owner').exists())
+    os.execvp('/bin/chmod', ['/bin/chmod', *args])
 elif name == 'dpkg':
     if args == ['--print-architecture']:
         print('amd64')
@@ -138,7 +142,7 @@ class ProvisioningReplay(unittest.TestCase):
             root = Path(tmp)
             binaries = root / 'bin'
             binaries.mkdir()
-            for name in ['sudo', 'timeout', 'chown', 'apt-get', 'apt-cache', 'dpkg', 'dpkg-query',
+            for name in ['sudo', 'timeout', 'chown', 'chmod', 'apt-get', 'apt-cache', 'dpkg', 'dpkg-query',
                          'sha256sum', 'ffmpeg', 'ffprobe', 'npm', 'rustup', 'cargo']:
                 path = binaries / name
                 path.write_text('#!' + sys.executable + '\n' + TOOL)
