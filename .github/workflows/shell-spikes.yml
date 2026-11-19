@@ -61,6 +61,8 @@ jobs:
           rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
           cargo +1.99.1 fmt --all -- --check
           cargo +1.99.1 metadata --locked --format-version 1 > evidence/cargo-metadata.json
+      - name: Install media evidence validator
+        run: bash ci/install-media-validator.sh
       - name: Check case deadlines and immutable evidence snapshots
         run: python -m unittest discover -s ci/tests -p 'test_round*.py'
       - name: Check JavaScript syntax
@@ -412,6 +414,8 @@ jobs:
           rustup target add x86_64-linux-android
           cargo install tauri-cli --version 2.12.5 --locked
           npm ci --ignore-scripts
+      - name: Install media evidence validator
+        run: bash ci/install-media-validator.sh
       - name: Select hosted Android SDK tools and enable KVM
         run: |
           test -n "$ANDROID_HOME"

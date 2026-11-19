@@ -111,3 +111,14 @@ host-time origin remain UNVERIFIED, an accepted measured spike gap. Collection
 lists the calibration state per Android and Wayland cell in `presentationCalibration`.
 The S11 FRAME finalizer also rejects links unless the capture index explicitly
 reports `clockCalibrated: true`.
+
+## Ubuntu static and collection media validator
+
+`public-static`, `collect` and the Android host install `ffmpeg=7:6.1.1-3ubuntu5` (amd64, includes ffprobe)
+from the signed default Ubuntu noble archive, never a date snapshot.
+Payload `pool/universe/f/ffmpeg/ffmpeg_6.1.1-3ubuntu5_amd64.deb` has SHA256
+`1a23baace5f2688a47e28119aedae6993cd638e6279a7227dfc52d9a337a1c17`.
+`ci/install-media-validator.sh` authenticates apt metadata, verifies the payload digest,
+checks installed package version/files and PATH resolution, and exercises libx264 encode,
+ffprobe and PNG decode. Dependencies resolve from signed noble release/updates/security.
+A missing pin or verification failure stops the gate; updating the pin requires review.
