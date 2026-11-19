@@ -14,8 +14,9 @@ mkdir -p "$media_apt/lists/partial"
 # apt drops download privileges to _apt; traversal alone does not grant write
 # access. Keep downloads separate from the authenticated metadata and sources.
 mkdir "$media_apt/downloads"
-sudo chown _apt:root "$media_apt/downloads"
+# Set the mode while the runner still owns the directory; after chown only root could change it.
 chmod 755 "$media_apt/downloads"
+sudo chown _apt:root "$media_apt/downloads"
 for suite in noble noble-updates noble-security; do
   printf 'deb [signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] http://archive.ubuntu.com/ubuntu/ %s main universe\n' "$suite"
 done > "$media_apt/sources.list"
