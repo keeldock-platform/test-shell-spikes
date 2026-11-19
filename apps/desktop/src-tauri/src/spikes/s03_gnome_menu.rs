@@ -127,7 +127,7 @@ pub fn plugin() -> TauriPlugin<Wry> {
             app.manage(state.clone());
 
             #[cfg(target_os = "linux")]
-            install_native_event_hook(app.handle(), state)?;
+            install_native_event_hook(app, state)?;
 
             Ok(())
         })
@@ -307,7 +307,7 @@ mod linux {
         state: S03State,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let webview = app
-            .get_webview("main")
+            .get_webview_window("main")
             .ok_or("S03 requires the main webview")?;
         let window = main_window(app).map_err(std::io::Error::other)?;
         let connected = Arc::new(AtomicBool::new(false));

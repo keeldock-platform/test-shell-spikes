@@ -110,7 +110,7 @@ pub fn plugin() -> tauri::plugin::TauriPlugin<Wry> {
             let state = DoorState::default();
             app.manage(state.clone());
 
-            let app_handle = app.handle().clone();
+            let app_handle = app.clone();
             tauri::async_runtime::spawn(async move {
                 let (sender, mut updates) = tokio::sync::mpsc::channel::<NativeUpdate>(8);
                 let initial = s11_native::subscribe(sender, app_handle.clone()).await;

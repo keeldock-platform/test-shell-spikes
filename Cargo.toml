@@ -20,7 +20,7 @@ tokio = { version = "=1.54.1", features = ["sync"] }
 tauri-plugin-dialog = "=2.8.4"
 gtk = "=0.18.2"
 webview2-com = "=0.39.1"
-ashpd = "=0.14.0"
+ashpd = { version = "=0.14.0", features = ["settings"] }
 futures-util = "=0.3.34"
 objc2 = "=0.6.5"
 objc2-app-kit = "=0.3.2"

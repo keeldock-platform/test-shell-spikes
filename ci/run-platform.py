@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 
 from case_catalog import case_ids_for
+from discovery_authorization import discovery_authorization_errors
 
 ROOT = Path(__file__).resolve().parents[1]
 DESKTOP = ROOT / "apps/desktop/src-tauri"
@@ -38,6 +39,15 @@ def start_android_emulator(api: str) -> int:
     if not isinstance(image, str) or not image:
         print(f"Android API {api} system image package is not declared.", file=sys.stderr)
         return 78
+    sdk_root = os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT")
+    if sdk_root:
+        os.environ["ANDROID_HOME"] = sdk_root
+        os.environ["ANDROID_SDK_ROOT"] = sdk_root
+        os.environ["PATH"] = os.pathsep.join([
+            str(Path(sdk_root) / "cmdline-tools/latest/bin"),
+            str(Path(sdk_root) / "platform-tools"),
+            str(Path(sdk_root) / "emulator"), os.environ.get("PATH", ""),
+        ])
     sdkmanager = shutil.which("sdkmanager")
     if not sdkmanager:
         print("sdkmanager is unavailable", file=sys.stderr)
@@ -95,19 +105,25 @@ def start_android_emulator(api: str) -> int:
     create = execute(["avdmanager", "create", "avd", "--force", "--name", avd, "--package", image, "--device", device])
     if create:
         return create
+    emulator_log = Path(os.environ.get("SHELL_EVIDENCE_DIR", "evidence")) / "recorder/android-emulator.log"
+    emulator_log.parent.mkdir(parents=True, exist_ok=True)
     process = subprocess.Popen(
         ["emulator", "-avd", avd, "-accel", "on", "-wipe-data", "-no-snapshot", "-no-audio", "-no-window", "-no-boot-anim"],
         cwd=ROOT,
         env=os.environ.copy(),
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=emulator_log.open("w"),
+        stderr=subprocess.STDOUT,
     )
     os.environ["SHELL_ANDROID_EMULATOR_PID"] = str(process.pid)
-    wait_status = execute(["adb", "wait-for-device"])
+    try:
+        wait_status = subprocess.run(["adb", "wait-for-device"], timeout=180, check=False).returncode
+    except subprocess.TimeoutExpired:
+        print("adb wait-for-device timed out; inspect recorder/android-emulator.log", file=sys.stderr)
+        return 78
     if wait_status:
         return wait_status
     for _ in range(120):
-        if run_command(["adb", "shell", "getprop", "sys.boot_completed"]) == "1":
+        if (run_command(["adb", "shell", "getprop", "sys.boot_completed"]) or "").strip() == "1":
             return 0
         time.sleep(1)
     print("Android emulator did not finish booting.", file=sys.stderr)
@@ -371,6 +387,18 @@ def main() -> int:
             parser.error("--dry-run currently supports Android preflight")
         return execute([sys.executable, "ci/runtime-discovery.py", "android", "--dry-run"])
 
+    policy = environment_lock()["runtimePolicy"]
+    if args.platform == "ios" and policy.get("mode") == "first-ci-run-discovery":
+        errors = discovery_authorization_errors(policy, os.environ, require_ci=True)
+        if errors or not os.environ.get("GITHUB_RUN_ID"):
+            print("iOS bootstrap requires coordinator-authorized discovery.", file=sys.stderr)
+            return 78
+
+    # Start CoreSimulator and wait for a usable device before Xcode runtime updates.
+    if args.platform == "ios" and not boot_ios_simulator("iphone"):
+        print("iOS simulator bootstrap failed before runtime discovery.", file=sys.stderr)
+        return 78
+
     discovery_status = execute([sys.executable, "ci/runtime-discovery.py", args.platform])
     if discovery_status:
         return discovery_status
@@ -411,7 +439,7 @@ def main() -> int:
         if active_status:
             print("Bundled WebView discovery unavailable: UNVERIFIED; continuing Android build and cases.", file=sys.stderr)
 
-    renderer_status = execute(["npm", "run", "build:renderer"])
+    renderer_status = execute([shutil.which("npm") or "npm", "run", "build:renderer"])
     if renderer_status:
         if args.platform == "android":
             stop_android_emulator()

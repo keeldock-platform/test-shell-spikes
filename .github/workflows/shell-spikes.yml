@@ -109,6 +109,8 @@ jobs:
         run: |
           rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
           npm ci --ignore-scripts
+      - name: Probe macOS runner tools
+        run: python3 ci/probe-runner.py macos
       - name: Run shared desktop and serial macOS cases
         run: bash ci/run-macos.sh
       - name: Upload macOS evidence
@@ -154,6 +156,8 @@ jobs:
         run: |
           rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
           npm ci --ignore-scripts
+      - name: Probe Windows runner tools
+        run: python ci/probe-runner.py windows
       - name: Run desktop Windows cases
         shell: pwsh
         run: ./ci/run-windows.ps1
@@ -200,6 +204,8 @@ jobs:
         run: |
           rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
           npm ci --ignore-scripts
+      - name: Probe Windows ARM64 runner tools
+        run: python ci/probe-runner.py windows
       - name: Run ARM64 native system-menu and Snap cases
         shell: pwsh
         run: ./ci/run-windows-client.ps1
@@ -268,6 +274,8 @@ jobs:
         run: |
           rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
           npm ci --ignore-scripts
+      - name: Probe Linux runner tools
+        run: python3 ci/probe-runner.py linux
       - name: Provision Ubuntu 24.04 GNOME session or record the declared fallback
         run: bash ci/run-linux.sh
       - name: Upload Linux compositor evidence
@@ -313,6 +321,8 @@ jobs:
           rustup target add aarch64-apple-ios-sim
           cargo install tauri-cli --version 2.12.5 --locked
           npm ci --ignore-scripts
+      - name: Probe iOS runner tools and installed simulators
+        run: python3 ci/probe-runner.py ios
       - name: Build unsigned simulator wrapper and run iPhone and iPad cases serially
         run: bash ci/run-ios.sh
       - name: Upload iOS evidence
@@ -363,6 +373,18 @@ jobs:
           rustup target add x86_64-linux-android
           cargo install tauri-cli --version 2.12.5 --locked
           npm ci --ignore-scripts
+      - name: Select hosted Android SDK tools and enable KVM
+        run: |
+          test -n "$ANDROID_HOME"
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/emulator" >> "$GITHUB_PATH"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          test -e /dev/kvm
+          sudo chmod a+rw /dev/kvm
+      - name: Probe Android runner tools and acceleration
+        run: python3 ci/probe-runner.py android
       - name: Run Android API-level cases
         run: bash ci/run-android.sh
       - name: Upload Android emulator evidence
@@ -397,9 +419,16 @@ jobs:
         with:
           python-version: 3.14.10
       - name: Install media evidence validator
+        env:
+          SHELL_APT_TIMEOUT_SECONDS: 180
         run: |
-          sudo apt-get update
-          sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends ffmpeg
+          if ! command -v ffprobe || ! command -v ffmpeg; then
+            bash ci/apt-host.sh update
+            bash ci/apt-host.sh install --yes --no-install-recommends ffmpeg
+          fi
+          command -v ffprobe ffmpeg
+          ffprobe -version
+          ffmpeg -version
       - name: Download all one-wave evidence
         if: always()
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3

@@ -29,18 +29,20 @@ provision_host() {
     return 78
   fi
 
-  sudo apt-get update
-  sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
+  bash ci/apt-host.sh update
+  bash ci/apt-host.sh install --yes --no-install-recommends \
     at-spi2-core dbus-x11 ffmpeg gnome-shell gnome-session gsettings-desktop-schemas \
     gnome-screenshot=41.0-2build2 libayatana-appindicator3-dev libgtk-3-dev libwebkit2gtk-4.1-dev patchelf \
     python3-pyatspi x11-utils xauth xdotool xvfb
 
   if [[ "$session_slug" == "wayland" ]]; then
-    sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends ydotool
+    bash ci/apt-host.sh install --yes --no-install-recommends ydotool
     if [[ ! -e /dev/uinput ]]; then
       sudo modprobe uinput || true
     fi
   fi
+
+  python3 ci/probe-runner.py linux
 
   local gnome_version webkit_version ffmpeg_version package_summary
   local -a package_names

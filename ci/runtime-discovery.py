@@ -41,7 +41,7 @@ def plan(target, output):
                  android['buildTools']['package'], android['ndk']['package'],
                  'platform-tools', 'emulator', android['systemImages'][api]['package']]]
     if target == 'linux':
-        return [['sudo', 'apt-get', 'update'], ['sudo', 'apt-get', 'install', '--only-upgrade', '-y', 'libwebkit2gtk-4.1-0']]
+        return [['bash', 'ci/apt-host.sh', 'update'], ['bash', 'ci/apt-host.sh', 'install', '--only-upgrade', '-y', 'libwebkit2gtk-4.1-0']]
     if target == 'windows':
         installer = output / 'MicrosoftEdgeWebview2Setup.exe'
         script = ("$ErrorActionPreference='Stop'; Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile '"
@@ -66,6 +66,8 @@ def execute_plan(commands, output, run=subprocess.run):
             result = run(command, capture_output=True, text=True, timeout=1800, check=False)
             log = output / f'install-{number}.log'
             log.write_text(result.stdout + result.stderr)
+            print('$ ' + ' '.join(command), flush=True)
+            print(result.stdout + result.stderr, flush=True)
             records.append({'command': command, 'exitCode': result.returncode, 'log': log.name})
             if result.returncode:
                 break

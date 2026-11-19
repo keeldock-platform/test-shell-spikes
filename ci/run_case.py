@@ -741,7 +741,7 @@ def main() -> int:
             "rustc": run(["rustc", "--version"]),
             "cargo": run(["cargo", "--version"]),
             "node": run(["node", "--version"]),
-            "npm": run(["npm", "--version"]),
+            "npm": run([shutil.which("npm") or "npm", "--version"]),
             "python": platform.python_version(),
             "pythonToolchain": os.environ.get("SHELL_TOOLCHAIN_PYTHON", platform.python_version()),
             "tauri": "2.12.6",
