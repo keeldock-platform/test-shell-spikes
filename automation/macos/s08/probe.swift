@@ -4,6 +4,7 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 import Foundation
+import ScreenCaptureKit
 
 struct ProbeFailure: Error, CustomStringConvertible {
     let description: String
@@ -128,8 +129,10 @@ final class Probe {
     func mainWindow() -> NativeWindow? { windows().first { $0.title != "Settings" && $0.role == "AXWindow" && $0.windowID != nil } }
 
     func focusedWindow() -> NativeWindow? {
-        guard let focused = attribute(application, "AXFocusedWindow") as? AXUIElement,
-              let frame = frameOf(focused) else { return nil }
+        guard let value = attribute(application, "AXFocusedWindow"),
+              CFGetTypeID(value as CFTypeRef) == AXUIElementGetTypeID() else { return nil }
+        let focused = value as! AXUIElement
+        guard let frame = frameOf(focused) else { return nil }
         let title = stringAttribute(focused, "AXTitle") ?? ""
         let role = stringAttribute(focused, "AXRole") ?? ""
         return NativeWindow(element: focused, title: title, role: role, frame: frame, windowID: cgWindowID(frame: frame, title: title, pid: process.processIdentifier))
@@ -285,13 +288,51 @@ final class Probe {
         let screens = evidenceRoot.appendingPathComponent("screens", isDirectory: true)
         try FileManager.default.createDirectory(at: screens, withIntermediateDirectories: true)
         let url = screens.appendingPathComponent(name)
-        guard let image = CGWindowListCreateImage(
-            .null,
-            .optionOnScreenOnly,
-            kCGNullWindowID,
-            [.bestResolution]
-        ) else {
-            throw ProbeFailure(description: "Whole-desktop screen capture is unavailable for \(name)")
+        guard #available(macOS 14.0, *), CGPreflightScreenCaptureAccess() else {
+            throw ProbeFailure(description: "ScreenCaptureKit capture requires macOS 14 and pre-authorised screen recording")
+        }
+        // Completion values are delivered to the main queue while waitUntil
+        // pumps its run loop, so capture never blocks that queue on a semaphore.
+        var contentResult: Result<SCShareableContent, Error>?
+        SCShareableContent.getExcludingDesktopWindows(false, onScreenWindowsOnly: true) { content, error in
+            DispatchQueue.main.async {
+                if let content { contentResult = .success(content) }
+                else { contentResult = .failure(error ?? ProbeFailure(description: "No shareable desktop content")) }
+            }
+        }
+        let content = try waitUntil("ScreenCaptureKit display list", timeout: 15) { contentResult }.get()
+        guard !content.displays.isEmpty else {
+            throw ProbeFailure(description: "ScreenCaptureKit returned no displays")
+        }
+        let bounds = content.displays.reduce(CGRect.null) { $0.union($1.frame) }
+        let scale = NSScreen.screens.map { $0.backingScaleFactor }.max() ?? 1
+        guard let canvas = CGContext(data: nil, width: Int(bounds.width * scale),
+                                     height: Int(bounds.height * scale), bitsPerComponent: 8,
+                                     bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                     bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+            throw ProbeFailure(description: "Could not allocate whole-desktop capture")
+        }
+        for display in content.displays {
+            let configuration = SCStreamConfiguration()
+            configuration.width = Int(display.frame.width * scale)
+            configuration.height = Int(display.frame.height * scale)
+            configuration.showsCursor = false
+            let filter = SCContentFilter(display: display, excludingWindows: [])
+            var imageResult: Result<CGImage, Error>?
+            SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration) { image, error in
+                DispatchQueue.main.async {
+                    if let image { imageResult = .success(image) }
+                    else { imageResult = .failure(error ?? ProbeFailure(description: "No desktop capture image")) }
+                }
+            }
+            let captured = try waitUntil("ScreenCaptureKit display capture", timeout: 15) { imageResult }.get()
+            canvas.draw(captured, in: CGRect(x: (display.frame.minX - bounds.minX) * scale,
+                                            y: (bounds.maxY - display.frame.maxY) * scale,
+                                            width: display.frame.width * scale,
+                                            height: display.frame.height * scale))
+        }
+        guard let image = canvas.makeImage() else {
+            throw ProbeFailure(description: "Could not compose whole-desktop capture")
         }
         let representation = NSBitmapImageRep(cgImage: image)
         guard let png = representation.representation(using: .png, properties: [:]) else {
@@ -356,7 +397,7 @@ final class Probe {
         try raise(main)
         _ = try waitUntil("main window to become key before repeat entry") { self.focusedWindow()?.windowID == main.windowID ? true : nil }
         try sendComma()
-        let focusedAgain = try waitUntil("the existing Settings window to be focused") {
+        let focusedAgain: NativeWindow = try waitUntil("the existing Settings window to be focused") {
             guard let focused = self.focusedWindow(), focused.title == "Settings" else { return nil }
             return focused
         }
@@ -397,7 +438,7 @@ final class Probe {
         emitVerdict("S08-A04", expected: knownAssertions["S08-A04"]!, actual: "settingsActive=\(activeSecurity); pageMarker=\(securityPage); title=\(settings.title)", pass: activeSecurity && securityPage.contains("Security"))
 
         try press("Request step-up")
-        let sheetElements = try waitUntil("one Accessibility sheet attached to Settings") {
+        let sheetElements: [AXUIElement] = try waitUntil("one Accessibility sheet attached to Settings") {
             guard let settings = self.settingsWindow() else { return nil }
             let sheets = self.sheets(for: settings)
             return sheets.count == 1 ? sheets : nil
@@ -433,13 +474,13 @@ final class Probe {
         try openSettingsAndSelect("Team")
         let original = try waitForSettings()
         try scroll("Settings page content")
-        let nonzeroMarker = try waitUntil("a nonzero synthetic Team scroll marker") {
+        let nonzeroMarker: String = try waitUntil("a nonzero synthetic Team scroll marker") {
             guard let value = self.findByPrefix("Page: Team; scroll: "),
                   let scroll = Int(value.split(separator: ":").last?.trimmingCharacters(in: .whitespaces) ?? "0"),
                   scroll > 0 else { return nil }
             return value
         }
-        let savedMarker = try waitUntil("the host to confirm the Team page/scroll mock was saved") {
+        let savedMarker: String = try waitUntil("the host to confirm the Team page/scroll mock was saved") {
             guard let value = self.findByPrefix("View state saved: Page: Team; scroll:"),
                   value.contains(nonzeroMarker) else { return nil }
             return value
@@ -450,7 +491,7 @@ final class Probe {
         try waitForNoSettings()
         try sendComma()
         let reopened = try waitForSettings()
-        let afterReopen = try waitUntil("Team page and scroll state to restore") {
+        let afterReopen: String = try waitUntil("Team page and scroll state to restore") {
             guard let value = self.findByPrefix("Page: Team; scroll: "), value == nonzeroMarker else { return nil }
             return value
         }
@@ -464,7 +505,7 @@ final class Probe {
         let requestedPosition = CGPoint(x: originalFrame.origin.x + 37, y: originalFrame.origin.y + 29)
         let requestedSize = CGSize(width: originalFrame.width - 80, height: originalFrame.height - 60)
         try setGeometry(reopened, position: requestedPosition, size: requestedSize)
-        let moved = try waitUntil("Settings move and resize to settle") {
+        let moved: NativeWindow = try waitUntil("Settings move and resize to settle") {
             guard let value = self.settingsWindow() else { return nil }
             return abs(value.frame.origin.x - requestedPosition.x) < 3 && abs(value.frame.size.width - requestedSize.width) < 3 ? value : nil
         }
@@ -508,7 +549,7 @@ final class Probe {
     private func runPermissions() throws {
         try openSettingsAndSelect("General")
         try press("Run allowed command checks")
-        let allowed = try waitUntil("all Settings allowed-command checks") {
+        let allowed: String = try waitUntil("all Settings allowed-command checks") {
             guard let result = self.findByPrefix("settings read:allowed") else { return nil }
             return result
         }
@@ -516,7 +557,7 @@ final class Probe {
         try captureWholeDesktop("s08-allowed-commands.png")
         var parentedNativeSurfaces: [Bool] = []
         try press("Request step-up")
-        let stepUpSheets = try waitUntil("parented step-up dialog") {
+        let stepUpSheets: [AXUIElement] = try waitUntil("parented step-up dialog") {
             guard let settings = self.settingsWindow() else { return nil }
             let sheets = self.sheets(for: settings)
             return sheets.count == 1 ? sheets : nil
@@ -531,7 +572,7 @@ final class Probe {
             ("Import sample data (host picker)", "Open"),
         ] {
             try press(buttonTitle)
-            let pickerSheets = try waitUntil("parented \(pickerTitle) picker") {
+            let pickerSheets: [AXUIElement] = try waitUntil("parented \(pickerTitle) picker") {
                 guard let settings = self.settingsWindow() else { return nil }
                 let sheets = self.sheets(for: settings)
                 return sheets.count == 1 ? sheets : nil
@@ -608,8 +649,12 @@ func stringAttribute(_ element: AXUIElement, _ name: String) -> String? {
 }
 
 func frameOf(_ element: AXUIElement) -> CGRect? {
-    guard let positionValue = attribute(element, "AXPosition") as? AXValue,
-          let sizeValue = attribute(element, "AXSize") as? AXValue else { return nil }
+    guard let positionObject = attribute(element, "AXPosition"),
+          let sizeObject = attribute(element, "AXSize"),
+          CFGetTypeID(positionObject as CFTypeRef) == AXValueGetTypeID(),
+          CFGetTypeID(sizeObject as CFTypeRef) == AXValueGetTypeID() else { return nil }
+    let positionValue = positionObject as! AXValue
+    let sizeValue = sizeObject as! AXValue
     var position = CGPoint.zero
     var size = CGSize.zero
     guard AXValueGetValue(positionValue, .cgPoint, &position), AXValueGetValue(sizeValue, .cgSize, &size) else { return nil }
@@ -621,8 +666,8 @@ func cgWindowID(frame: CGRect, title: String, pid: pid_t) -> Int? {
     return rows.first { row in
         guard let owner = row[kCGWindowOwnerPID as String] as? pid_t,
               owner == pid,
-              let bounds = row[kCGWindowBounds as String] as? CFDictionary,
-              let nativeFrame = CGRect(dictionaryRepresentation: bounds) else { return false }
+              let bounds = row[kCGWindowBounds as String] as? [String: Any],
+              let nativeFrame = CGRect(dictionaryRepresentation: bounds as CFDictionary) else { return false }
         let name = row[kCGWindowName as String] as? String ?? ""
         let intersects = nativeFrame.insetBy(dx: -3, dy: -3).intersects(frame)
         return intersects && (title.isEmpty || name == title || name.isEmpty)

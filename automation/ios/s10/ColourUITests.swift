@@ -76,8 +76,12 @@ final class ColourUITests: XCTestCase {
         if selected && open.exists { open.tap() }
         if selected && pickerControl.exists {
             pickerControl.tap()
-            let nativeCancel = app.buttons.matching(identifier: "Cancel").lastMatch
-            if nativeCancel.waitForExistence(timeout: 2) { nativeCancel.tap(); dismissalPerformed = true }
+            let nativeCancels = app.buttons.matching(identifier: "Cancel")
+            if nativeCancels.firstMatch.waitForExistence(timeout: 2),
+               let nativeCancel = nativeCancels.allElementsBoundByIndex.last {
+                nativeCancel.tap()
+                dismissalPerformed = true
+            }
         }
         let dismissOk = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] %@", "#e0a526")).firstMatch.exists
         screenshots["screens/ios-picker-dismiss.png"] = XCUIScreen.main.screenshot().pngRepresentation

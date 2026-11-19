@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sentinel-file-access"
+description = "Enables the sentinel_file_access command without any pre-configured scope."
+commands.allow = ["sentinel_file_access"]
+
+[[permission]]
+identifier = "deny-sentinel-file-access"
+description = "Denies the sentinel_file_access command without any pre-configured scope."
+commands.deny = ["sentinel_file_access"]

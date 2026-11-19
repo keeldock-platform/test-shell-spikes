@@ -102,10 +102,11 @@ if [ -z "$SHELL_APP_PATH" ]; then exit 78; fi
 actual_id=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$SHELL_APP_PATH/{plist_relative}")
 [ "$actual_id" = "{bundle_id}" ] || exit 78
 mkdir -p "$TARGET_BUILD_DIR"
-rm -rf "$TARGET_BUILD_DIR/$FULL_PRODUCT_NAME"
 /usr/bin/ditto "$SHELL_APP_PATH" "$TARGET_BUILD_DIR/$FULL_PRODUCT_NAME"
 '''
-    add(app_phase, "Copy prebuilt Tauri app bundle", f"\t\t\tisa = PBXShellScriptBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = ( );\n\t\t\tinputPaths = ( );\n\t\t\tname = \"Copy prebuilt test shell\";\n\t\t\toutputPaths = ( \"$(TARGET_BUILD_DIR)/$(FULL_PRODUCT_NAME)\", );\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t\tshellPath = /bin/sh;\n\t\t\tshellScript = {quote(script)};")
+    # Xcode owns the app directory. Declare only the copied plist so validation
+    # waits for the copy without competing with Xcode's MkDir task.
+    add(app_phase, "Copy prebuilt Tauri app bundle", f"\t\t\tisa = PBXShellScriptBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = ( );\n\t\t\tinputPaths = ( );\n\t\t\tname = \"Copy prebuilt test shell\";\n\t\t\talwaysOutOfDate = 1;\n\t\t\toutputPaths = ( \"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)\", );\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t\tshellPath = /bin/sh;\n\t\t\tshellScript = {quote(script)};")
     add(test_sources_phase, "Sources", f"\t\t\tisa = PBXSourcesBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = {array(source_builds)};\n\t\t\trunOnlyForDeploymentPostprocessing = 0;")
     add(test_framework_phase, "Frameworks", f"\t\t\tisa = PBXFrameworksBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = ( {framework_build} /* XCTest.framework in Frameworks */, );\n\t\t\trunOnlyForDeploymentPostprocessing = 0;")
     add(test_resources_phase, "Resources", "\t\t\tisa = PBXResourcesBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = ( );\n\t\t\trunOnlyForDeploymentPostprocessing = 0;")
@@ -116,7 +117,8 @@ rm -rf "$TARGET_BUILD_DIR/$FULL_PRODUCT_NAME"
     test_config_ids = [oid("test-debug"), oid("test-release")]
     project_config_ids = [oid("project-debug"), oid("project-release")]
     app_settings = {
-        "CODE_SIGNING_ALLOWED": "NO", "GENERATE_INFOPLIST_FILE": "YES",
+        "CODE_SIGNING_ALLOWED": "NO", "GENERATE_INFOPLIST_FILE": "NO",
+        "ENABLE_USER_SCRIPT_SANDBOXING": "NO",
         "PRODUCT_BUNDLE_IDENTIFIER": quote(bundle_id),
         "PRODUCT_NAME": quote(app_name), "SKIP_INSTALL": "NO",
         "SUPPORTED_PLATFORMS": quote("macosx" if platform == "macos" else "iphoneos iphonesimulator"),

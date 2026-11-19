@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sentinel-project-open"
+description = "Enables the sentinel_project_open command without any pre-configured scope."
+commands.allow = ["sentinel_project_open"]
+
+[[permission]]
+identifier = "deny-sentinel-project-open"
+description = "Denies the sentinel_project_open command without any pre-configured scope."
+commands.deny = ["sentinel_project_open"]

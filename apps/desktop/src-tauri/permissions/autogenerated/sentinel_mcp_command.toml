@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sentinel-mcp-command"
+description = "Enables the sentinel_mcp_command command without any pre-configured scope."
+commands.allow = ["sentinel_mcp_command"]
+
+[[permission]]
+identifier = "deny-sentinel-mcp-command"
+description = "Denies the sentinel_mcp_command command without any pre-configured scope."
+commands.deny = ["sentinel_mcp_command"]

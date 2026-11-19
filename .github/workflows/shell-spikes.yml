@@ -420,7 +420,8 @@ jobs:
           python-version: 3.14.10
       - name: Install media evidence validator
         env:
-          SHELL_APT_TIMEOUT_SECONDS: 180
+          SHELL_APT_TIMEOUT_SECONDS: 120
+          SHELL_APT_ATTEMPTS: 2
         run: |
           if ! command -v ffprobe || ! command -v ffmpeg; then
             bash ci/apt-host.sh update

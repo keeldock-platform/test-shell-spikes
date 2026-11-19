@@ -24,8 +24,6 @@ thiserror = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 tauri-plugin-dialog = { workspace = true, optional = true }
 tauri-plugin-window-state = { workspace = true, optional = true }
-ashpd = { workspace = true, optional = true }
-futures-util = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { workspace = true, optional = true }
@@ -35,6 +33,8 @@ objc2-core-foundation = { workspace = true, optional = true }
 block2 = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+ashpd = { workspace = true, optional = true }
+futures-util = { workspace = true, optional = true }
 gtk = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]

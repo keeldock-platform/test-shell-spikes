@@ -36,7 +36,7 @@ provision_host() {
     python3-pyatspi x11-utils xauth xdotool xvfb
 
   if [[ "$session_slug" == "wayland" ]]; then
-    bash ci/apt-host.sh install --yes --no-install-recommends ydotool
+    bash ci/apt-host.sh install --yes --no-install-recommends ydotool ydotoold
     if [[ ! -e /dev/uinput ]]; then
       sudo modprobe uinput || true
     fi
@@ -50,7 +50,7 @@ provision_host() {
   webkit_version="$(pkg-config --modversion webkit2gtk-4.1)"
   ffmpeg_version="$(ffmpeg -version | head -n 1)"
   package_names=(at-spi2-core dbus-x11 ffmpeg gnome-shell gnome-session gnome-screenshot libgtk-3-dev libwebkit2gtk-4.1-dev python3-pyatspi xdotool xvfb)
-  if [[ "$session_slug" == "wayland" ]]; then package_names+=(ydotool); fi
+  if [[ "$session_slug" == "wayland" ]]; then package_names+=(ydotool ydotoold); fi
   package_summary="$(dpkg-query -W -f='${binary:Package}=${Version}\n' "${package_names[@]}" 2>/dev/null | sort)"
   python3 - "$diagnostics" "$profile" "$session" "$gnome_version" "$webkit_version" "$ffmpeg_version" "$package_summary" <<'PY'
 import json, sys
@@ -86,6 +86,11 @@ run_in_session() {
   shell_log="${SHELL_EVIDENCE_DIR:-evidence}/preflight/gnome-shell-${session_slug}.log"
   mkdir -p "$runtime_dir" "$(dirname "$shell_log")"
   chmod 700 "$runtime_dir"
+  # Nested hosted displays have no DRI3 device. Mesa must render in software;
+  # retain GLX because GNOME/Mutter needs it even with llvmpipe.
+  export LIBGL_ALWAYS_SOFTWARE=1
+  export GALLIUM_DRIVER=llvmpipe
+  export WEBKIT_DISABLE_DMABUF_RENDERER=1
   export DISPLAY="$display"
   Xvfb "$display" -screen 0 1600x1000x24 -ac +extension RANDR >"${shell_log}.xvfb" 2>&1 &
   outer_x_pid=$!
@@ -112,7 +117,12 @@ run_in_session() {
     export SHELL_WAYLAND_INPUT_HELPER="kernel uinput through ydotool"
     export S03_WAYLAND_INPUT="$PWD/ci/linux/wayland-input.sh"
     export S03_WAYLAND_INPUT_BACKEND=uinput
+    export YDOTOOLD_BIN="$(command -v ydotoold || true)"
     export YDOTOOL_BIN="$(command -v ydotool || true)"
+    if [[ -z "$YDOTOOLD_BIN" ]] || ! timeout 5 "$YDOTOOLD_BIN" --help 2>&1 | grep -q -- --socket-path; then
+      record_status "UNVERIFIED" "Distro ydotoold lacks the socket-path protocol required by the Wayland input adapter."
+      return 78
+    fi
     [[ -x "$S03_WAYLAND_INPUT" && -n "$YDOTOOL_BIN" && -e /dev/uinput ]] || {
       record_status "UNVERIFIED" "Wayland requires the uinput device, ydotool client, and input adapter."
       return 78
@@ -153,7 +163,7 @@ run_in_session() {
     export SHELL_GNOME_VERSION="$(gnome-shell --version | tr -d '\''\r'\'')"
     if [[ "$XDG_SESSION_TYPE" == "wayland" ]]; then
       socket="$XDG_RUNTIME_DIR/.ydotool_socket"
-      sudo --non-interactive ydotoold --socket-path="$socket" --socket-own="$(id -u):$(id -g)" --socket-perm=0600 >"${log}.input" 2>&1 &
+      sudo --non-interactive "$YDOTOOLD_BIN" --socket-path="$socket" --socket-own="$(id -u):$(id -g)" --socket-perm=0600 >"${log}.input" 2>&1 &
       input_daemon_pid=$!
       export YDOTOOL_SOCKET="$socket"
       ready=0

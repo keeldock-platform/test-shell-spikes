@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mock-settings-read"
+description = "Enables the mock_settings_read command without any pre-configured scope."
+commands.allow = ["mock_settings_read"]
+
+[[permission]]
+identifier = "deny-mock-settings-read"
+description = "Denies the mock_settings_read command without any pre-configured scope."
+commands.deny = ["mock_settings_read"]

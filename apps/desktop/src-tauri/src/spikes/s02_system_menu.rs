@@ -487,6 +487,7 @@ mod native {
         SC_MINIMIZE, SC_MOVE, SC_RESTORE, SC_SIZE, SystemCommand, SystemMenuError, WindowMenuState,
     };
     use std::ffi::c_void;
+    use std::sync::atomic::Ordering;
 
     type Hwnd = *mut c_void;
     type Hmenu = *mut c_void;

@@ -45,6 +45,7 @@ def main() -> int:
     source_sha = checked_out_sha()
     distribution = os.environ.get("LINUX_DISTRO", "Unavailable Linux profile")
     session = os.environ.get("LINUX_SESSION", "unverified")
+    reason = os.environ.get("SHELL_LINUX_FALLBACK_REASON", "No pinned guest or release/session profile is provisioned for this Linux cell.")
     environment = {
         "sourceSha": source_sha,
         "job": os.environ.get("GITHUB_JOB", "linux-gui"),
@@ -60,7 +61,7 @@ def main() -> int:
         "execution": "not-started",
         "runtimeDiscovery": {"status": "UNVERIFIED", "resolvedVersion": None, "artifacts": [],
                              "reason": "Cell is not provisioned; no substitute host runtime is installed or frozen."},
-        "reason": "No pinned guest or release/session profile is provisioned for this Linux cell.",
+        "reason": reason,
         "versions": {"tauri": "2.12.6", "webview": None},
     }
     results = []
@@ -77,7 +78,7 @@ def main() -> int:
                     "caseId": case_id,
                     "id": spec.get("id"),
                     "expected": spec.get("expected", "Native evidence from the selected Linux profile"),
-                    "actual": "UNVERIFIED: the required Linux guest or release/session profile is not provisioned; no host substitute was used.",
+                    "actual": "UNVERIFIED: " + reason,
                     "verdict": "UNVERIFIED",
                     "evidence": [],
                     "fallbackSelection": selection,

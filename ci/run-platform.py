@@ -102,18 +102,40 @@ def start_android_emulator(api: str) -> int:
     if not device:
         print("Android AVD device profile is not frozen.", file=sys.stderr)
         return 78
-    create = execute(["avdmanager", "create", "avd", "--force", "--name", avd, "--package", image, "--device", device])
-    if create:
-        return create
+    # avdmanager can exit successfully on EOF without writing an AVD. Supply
+    # its hardware-profile answer and share one explicit home with the emulator.
+    avd_home = Path(os.environ.get("RUNNER_TEMP", str(ROOT / "target"))) / "shell-spike-avd"
+    avd_home.mkdir(parents=True, exist_ok=True)
+    os.environ["ANDROID_AVD_HOME"] = str(avd_home.resolve())
+    avdmanager = shutil.which("avdmanager")
+    if not avdmanager:
+        print("avdmanager is unavailable", file=sys.stderr)
+        return 127
+    command = [avdmanager, "create", "avd", "--force", "--name", avd,
+               "--package", image, "--device", device]
+    print("+ " + " ".join(command), flush=True)
+    try:
+        create = subprocess.run(command, cwd=ROOT, env=os.environ.copy(),
+                                input="no\n", text=True, timeout=120, check=False)
+    except subprocess.TimeoutExpired:
+        print("avdmanager timed out before creating the AVD", file=sys.stderr)
+        return 78
+    if create.returncode:
+        return create.returncode
+    available = run_command(["emulator", "-list-avds"]) or ""
+    if not (avd_home / f"{avd}.ini").is_file() or avd not in available.splitlines():
+        print(f"avdmanager did not create the expected AVD: {avd}", file=sys.stderr)
+        return 78
     emulator_log = Path(os.environ.get("SHELL_EVIDENCE_DIR", "evidence")) / "recorder/android-emulator.log"
     emulator_log.parent.mkdir(parents=True, exist_ok=True)
-    process = subprocess.Popen(
-        ["emulator", "-avd", avd, "-accel", "on", "-wipe-data", "-no-snapshot", "-no-audio", "-no-window", "-no-boot-anim"],
-        cwd=ROOT,
-        env=os.environ.copy(),
-        stdout=emulator_log.open("w"),
-        stderr=subprocess.STDOUT,
-    )
+    with emulator_log.open("w") as log:
+        process = subprocess.Popen(
+            ["emulator", "-avd", avd, "-accel", "on", "-wipe-data", "-no-snapshot", "-no-audio", "-no-window", "-no-boot-anim"],
+            cwd=ROOT,
+            env=os.environ.copy(),
+            stdout=log,
+            stderr=subprocess.STDOUT,
+        )
     os.environ["SHELL_ANDROID_EMULATOR_PID"] = str(process.pid)
     try:
         wait_status = subprocess.run(["adb", "wait-for-device"], timeout=180, check=False).returncode
