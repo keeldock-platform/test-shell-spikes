@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "decision": "Coordinator A5 under the owner's standing authorisation of 2026-11-19 (\"from now on you can Authorise the spikes\"): discovery run 17; first platform fixes after run 16 executed cases; attempt 1 only",
+  "decision": "Coordinator A5 under the owner's standing authorisation of 2026-11-19 (\"from now on you can Authorise the spikes\"): discovery run 18; platform fixes after run 17; attempt 1 only",
   "ref": "refs/heads/shell-spikes/integration-1118",
   "runNumbers": [
     1,
@@ -19,7 +19,8 @@
     14,
     15,
     16,
-    17
+    17,
+    18
   ],
   "runAttempt": 1,
   "installation": "official stable channels for other platforms; Android uses bundled WebView from official sdkmanager image (decision C, 2026-11-19)",
