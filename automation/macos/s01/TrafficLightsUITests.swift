@@ -162,9 +162,11 @@ final class TrafficLightsUITests: XCTestCase {
 
     private func stateLabel() -> String {
         let state = app.descendants(matching: .any).matching(
-            NSPredicate(format: "label CONTAINS %@", "density=")
+            NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", "density=", "density=")
         ).firstMatch
-        return state.exists ? state.label : ""
+        guard state.exists else { return "" }
+        let observed = [state.label, state.value as? String ?? ""]
+        return observed.first(where: { $0.contains("density=") }) ?? ""
     }
 
     private func waitForNativeFullscreen(_ expected: Bool) {

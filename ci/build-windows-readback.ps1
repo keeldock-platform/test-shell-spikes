@@ -11,7 +11,7 @@ $vcvars = Join-Path $installation 'VC\Auxiliary\Build\vcvars64.bat'
 if (-not (Test-Path -LiteralPath $vcvars)) { throw 'The x64 C++ environment script is unavailable.' }
 $parent = Split-Path -Parent $OutputPath
 New-Item -ItemType Directory -Force -Path $parent | Out-Null
-$command = 'call "' + $vcvars + '" >nul && cl.exe /nologo /EHsc /std:c++17 /permissive- /utf-8 "' + $source + '" /Fe:"' + $OutputPath + '"'
+$command = 'call "' + $vcvars + '" >nul && cl.exe /nologo /EHsc /std:c++20 /permissive- /utf-8 "' + $source + '" /Fe:"' + $OutputPath + '"'
 & $env:ComSpec /d /s /c $command
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $OutputPath)) {
     throw "The independent UISettings readback build failed with exit code $LASTEXITCODE."

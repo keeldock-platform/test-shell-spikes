@@ -8,8 +8,16 @@ if CommandLine.arguments.contains("--configure") {
     if current.width < 1280 || current.height < 800 {
         let modes = CGDisplayCopyAllDisplayModes(display, nil) as? [CGDisplayMode] ?? []
         guard let mode = modes.filter({ $0.width >= 1280 && $0.height >= 800 })
-            .min(by: { $0.width * $0.height < $1.width * $1.height }),
-              CGDisplaySetDisplayMode(display, mode, nil) == .success else {
+            .min(by: { $0.width * $0.height < $1.width * $1.height }) else {
+            fputs("No display mode can fit the Settings content.\n", stderr)
+            exit(78)
+        }
+        var configuration: CGDisplayConfigRef?
+        guard CGBeginDisplayConfiguration(&configuration) == .success,
+              let configuration else { exit(78) }
+        guard CGConfigureDisplayWithDisplayMode(configuration, display, mode, nil) == .success,
+              CGCompleteDisplayConfiguration(configuration, .forSession) == .success else {
+            CGCancelDisplayConfiguration(configuration)
             fputs("No display mode can fit the 1040x660 Settings content; require at least 1280x800.\n", stderr)
             exit(78)
         }

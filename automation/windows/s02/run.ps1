@@ -65,10 +65,12 @@ if ($AppPath -and -not (Test-Path -LiteralPath $AppPath) -and $ProcessId -eq 0) 
     throw 'Set S02_APP_PATH to the built synthetic shell executable or provide ProcessId.'
 }
 
+Add-Type -AssemblyName WindowsBase
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Windows.Forms
+Write-Host "UIA geometry assembly: $([System.Windows.Rect].Assembly.Location)"
 $frameworkReferences = @(Get-ChildItem -LiteralPath (Join-Path $PSHOME 'ref') -Filter '*.dll' | Select-Object -ExpandProperty FullName)
 Add-Type -Path (Join-Path $PSScriptRoot '../ScopedUia.cs') -ReferencedAssemblies (@(
     [System.Windows.Automation.AutomationElement].Assembly.Location,

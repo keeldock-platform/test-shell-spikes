@@ -44,7 +44,7 @@ final class AccentUITests: XCTestCase {
             "ready": ready,
             "fallback": "System hidden; stored System resolves to the test brand colour.",
             "assertions": [assertionId: [
-                "verdict": hidden ? "PASS" : "UNVERIFIED",
+                "verdict": hidden ? "PASS" : (ready ? "FAIL" : "UNVERIFIED"),
                 "actual": hidden ? "The policy fixture hid System and kept the brand control available." : "The native policy fixture did not expose complete accessibility evidence.",
                 "evidence": ["environment.json", "events.jsonl", "recorder/native-tree.txt",
                              "screens/ios-policy.png", "video/index.json"],
@@ -76,8 +76,17 @@ final class AccentUITests: XCTestCase {
             return false
         }
         caseField.clearAndEnterText(caseId, focus: false)
-        guard caseField.value as? String == caseId else {
-            XCTFail("Synthetic case ID did not retain the entered scenario")
+        // WKWebView's accessibility value can lag the completed text-entry event.
+        let retainedValue = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            caseField.value as? String == caseId
+        }, object: nil)
+        let retained = XCTWaiter.wait(for: [retainedValue], timeout: 5) == .completed
+        let valueProbe = XCTAttachment(string: "requested=\(caseId); AXValue=\(String(describing: caseField.value)); retained=\(retained)\n" + app.debugDescription)
+        valueProbe.name = "scenario-entered-value"
+        valueProbe.lifetime = .keepAlways
+        add(valueProbe)
+        guard retained else {
+            XCTFail("Synthetic case ID did not retain the entered scenario; AXValue=\(String(describing: caseField.value))")
             return false
         }
         for label in ["Return", "Go", "Done"] {

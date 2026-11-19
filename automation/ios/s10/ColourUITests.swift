@@ -74,7 +74,7 @@ final class ColourUITests: XCTestCase {
         var dismissalPerformed = false
         if selected && open.exists { open.tap() }
         if selected && hexInput.waitForExistence(timeout: 5) {
-            hexInput.tap(); hexInput.clearAndEnterText("#E0A526")
+            hexInput.clearAndEnterText("#E0A526")
             app.buttons["Use HEX value"].tap(); app.buttons["Apply"].tap()
             manualOk = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] %@", "#e0a526")).firstMatch.exists
             if open.waitForExistence(timeout: 5) && open.isHittable { open.tap() }
@@ -83,12 +83,12 @@ final class ColourUITests: XCTestCase {
                 XCTFail("Appearance HEX input did not reopen after Apply")
                 return
             }
-            hexInput.tap(); hexInput.clearAndEnterText("abc"); app.buttons["Use HEX value"].tap()
+            hexInput.clearAndEnterText("abc"); app.buttons["Use HEX value"].tap()
             shortHexOk = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] %@", "#aabbcc")).firstMatch.exists
             app.buttons["Cancel"].tap()
             cancelOk = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] %@", "#e0a526")).firstMatch.exists
             if open.waitForExistence(timeout: 5) && open.isHittable { open.tap() }
-            hexInput.tap(); hexInput.clearAndEnterText("#12XZ"); app.buttons["Use HEX value"].tap()
+            hexInput.clearAndEnterText("#12XZ"); app.buttons["Use HEX value"].tap()
             invalidOk = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] %@", "Enter a colour")).firstMatch.exists
             app.buttons["Cancel"].tap()
         }
@@ -186,8 +186,17 @@ final class ColourUITests: XCTestCase {
             return false
         }
         caseField.clearAndEnterText(caseId, focus: false)
-        guard caseField.value as? String == caseId else {
-            XCTFail("Synthetic case ID did not retain the entered scenario")
+        // WKWebView's accessibility value can lag the completed text-entry event.
+        let retainedValue = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            caseField.value as? String == caseId
+        }, object: nil)
+        let retained = XCTWaiter.wait(for: [retainedValue], timeout: 5) == .completed
+        let valueProbe = XCTAttachment(string: "requested=\(caseId); AXValue=\(String(describing: caseField.value)); retained=\(retained)\n" + app.debugDescription)
+        valueProbe.name = "scenario-entered-value"
+        valueProbe.lifetime = .keepAlways
+        add(valueProbe)
+        guard retained else {
+            XCTFail("Synthetic case ID did not retain the entered scenario; AXValue=\(String(describing: caseField.value))")
             return false
         }
         for label in ["Return", "Go", "Done"] {
@@ -205,7 +214,21 @@ final class ColourUITests: XCTestCase {
 
 private extension XCUIElement {
     func clearAndEnterText(_ text: String, focus: Bool = true) {
-        if focus { tap() }
+        if focus {
+            guard waitForExistence(timeout: 5), isHittable else {
+                XCTFail("Text entry target is not hittable: \(label)")
+                return
+            }
+            tap()
+            let keyboard = XCUIApplication().keyboards.firstMatch
+            if !keyboard.waitForExistence(timeout: 5) {
+                coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
+            guard keyboard.waitForExistence(timeout: 5) else {
+                XCTFail("Text entry target did not acquire a keyboard: \(label)")
+                return
+            }
+        }
         if let current = value as? String, !current.isEmpty {
             typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count))
         }

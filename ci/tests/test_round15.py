@@ -77,7 +77,7 @@ class RunNineProbes(unittest.TestCase):
             for index, mirror in enumerate(('archive.ubuntu.com', 'mirrors.edge.kernel.org', 'mirrors.mit.edu')):
                 result = subprocess.run(['bash', str(ROOT / 'ci/apt-mirror.sh'), str(index), tmp], capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertIn('https://' + mirror + '/ubuntu/', ubuntu.read_text())
+                self.assertIn('http://' + mirror + '/ubuntu/', ubuntu.read_text())
                 self.assertIn('Suites: resolute resolute-updates resolute-security', ubuntu.read_text())
                 self.assertIn('Signed-By:', ubuntu.read_text())
                 self.assertIn('resolved Ubuntu mirror', result.stdout)

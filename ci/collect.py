@@ -550,6 +550,11 @@ def main() -> int:
                     fallback_selections.append({"cell": required, "spike": spike, "caseId": case_id, "assertionId": identifier, "selection": fallback})
                 matrix_results.append(record)
 
+    execution_counts = {
+        cell: {verdict: sum(row.get("laneVerdict") == verdict for row in matrix_results if row["cell"] == cell)
+               for verdict in ("PASS", "FAIL", "UNVERIFIED")}
+        for cell in REQUIRED_CELLS
+    }
     all_observed_shas = sorted({sha for values in observed_source_shas.values() for sha in values})
     summary = {
         "schemaVersion": 2,
@@ -563,6 +568,10 @@ def main() -> int:
             if cell in cell_artifacts and any(row["cell"] == cell for row in ingestion)
             else {"status": "UNVERIFIED", "reasons": ["No valid cell manifest ingested."]}
             for cell in REQUIRED_CELLS
+        },
+        "executionObservations": {
+            "scope": "Native lane observations before evidence and runtime qualification; never admission PASS",
+            "byCell": execution_counts,
         },
         "ingestion": ingestion,
         "artifactHashes": artifact_hashes,
@@ -592,6 +601,7 @@ def main() -> int:
     print(f"Collected {len(cells)} cells, {len(matrix_results)} assertions, {unverified} unverified, {failed} failed.")
     print(f"Parsed {sum(row['parsedResults'] for row in ingestion)} source results from {len(ingestion)} manifests; "
           "job success does not imply assertion PASS; discovery observations remain unqualified until runtime freeze.")
+    print("Native lane observations before qualification: " + json.dumps(execution_counts, sort_keys=True))
     if problems:
         print("Collection problems:")
         for problem in problems:

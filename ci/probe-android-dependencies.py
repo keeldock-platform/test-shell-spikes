@@ -5,10 +5,25 @@ import json
 import os
 from pathlib import Path
 import sys
+import time
+import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def fetch(url, limit):
+    for attempt in range(1, 4):
+        print(f'Android coordinate attempt={attempt}/3 url={url}', flush=True)
+        try:
+            with urllib.request.urlopen(url, timeout=30) as response:
+                return response.read(limit)
+        except (OSError, urllib.error.HTTPError) as error:
+            print(f'Android coordinate failure url={url}: {error}', flush=True)
+            if attempt == 3:
+                raise ValueError(f'{url}: {error}') from error
+            time.sleep(attempt)
 
 
 def probe(lock):
@@ -19,16 +34,14 @@ def probe(lock):
     urls.append(f'https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/{agp}/gradle-{agp}.pom')
     records = []
     for url in urls:
-        with urllib.request.urlopen(url, timeout=30) as response:
-            data = response.read(2 * 1024 * 1024)
+        data = fetch(url, 2 * 1024 * 1024)
         tree = ET.fromstring(data)
         if tree.tag != '{http://maven.apache.org/POM/4.0.0}project':
             raise ValueError('Dependency coordinate did not return a Maven project')
         records.append({'url': url, 'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()})
         print('Resolved dependency coordinate: ' + url, flush=True)
     url = f"https://services.gradle.org/distributions/gradle-{lock['gradle']}-bin.zip.sha256"
-    with urllib.request.urlopen(url, timeout=30) as response:
-        digest = response.read(1024).decode().strip()
+    digest = fetch(url, 1024).decode().strip()
     if digest != lock['gradleSha256']:
         raise ValueError('Gradle distribution checksum does not match the lock')
     records.append({'url': url, 'distributionSha256': digest})

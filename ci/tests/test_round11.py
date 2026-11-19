@@ -97,8 +97,8 @@ class ProvisioningTests(unittest.TestCase):
             updated = sources.read_text()
             self.assertNotIn('mirror+file:', updated)
             self.assertNotIn('ec2.archive', updated)
-            self.assertIn('https://archive.ubuntu.com/ubuntu/', updated)
-            self.assertEqual(updated.count('https://archive.ubuntu.com/ubuntu/'), 3)
+            self.assertIn('http://archive.ubuntu.com/ubuntu/', updated)
+            self.assertEqual(updated.count('http://archive.ubuntu.com/ubuntu/'), 3)
 
     def test_apt_retries_are_bounded_and_preserve_failure(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,9 +1,11 @@
 param([Parameter(Mandatory=$true)][string]$CaseId, [Parameter(Mandatory=$true)][string]$EvidenceDir)
 $ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName WindowsBase
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+Write-Host "UIA geometry assembly: $([System.Windows.Rect].Assembly.Location)"
 $frameworkReferences = @(Get-ChildItem -LiteralPath (Join-Path $PSHOME 'ref') -Filter '*.dll' | Select-Object -ExpandProperty FullName)
 Add-Type -Path (Join-Path $PSScriptRoot '../ScopedUia.cs') -ReferencedAssemblies (@(
     [System.Windows.Automation.AutomationElement].Assembly.Location,

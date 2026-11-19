@@ -71,6 +71,9 @@ class RunEightProbes(unittest.TestCase):
             root = Path(tmp)
             build = root / 'build.gradle.kts'
             build.write_text('classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.21")\nclasspath("com.android.tools.build:gradle:9.3.1")')
+            build_src = root / 'buildSrc/build.gradle.kts'
+            build_src.parent.mkdir()
+            build_src.write_text('implementation("com.android.tools.build:gradle:9.3.1")')
             wrapper = root / 'gradle/wrapper/gradle-wrapper.properties'
             wrapper.parent.mkdir(parents=True)
             wrapper.write_text('distributionUrl=https://services.gradle.org/distributions/gradle-9.6.1-bin.zip\n')

@@ -77,8 +77,27 @@ let openButton = appRows.first(where: { $0.1.localizedCaseInsensitiveContains("O
 let openObserved = openButton.map(press) ?? false
 usleep(500_000)
 let pageRows = appElement.map(flatten) ?? []
-let pickerControl = pageRows.first(where: { $0.1.localizedCaseInsensitiveContains("Custom colour picker") })?.0
-let pickerOpened = pickerControl.map(press) ?? false
+try pageRows.map(\.1).joined(separator: "\n").write(
+    to: recorder.appendingPathComponent("native-tree-picker-control.txt"), atomically: true, encoding: .utf8)
+func openPicker(_ rows: [(AXUIElement, String)]) -> Bool {
+    guard let control = rows.first(where: {
+        $0.1.localizedCaseInsensitiveContains("Custom colour picker") &&
+        ["AXColorWell", "AXButton"].contains(attribute($0.0, kAXRoleAttribute as String))
+    })?.0 else { return false }
+    let focused = AXUIElementSetAttributeValue(control, kAXFocusedAttribute as CFString, kCFBooleanTrue) == .success
+    let pressed = press(control)
+    let deadline = Date(timeIntervalSinceNow: 1)
+    while nativePickerRows().isEmpty && Date() < deadline { usleep(100_000) }
+    // WKWebView can accept AXPress as focus only; Space activates the focused colour well.
+    if nativePickerRows().isEmpty && focused {
+        CGEvent(keyboardEventSource: nil, virtualKey: 49, keyDown: true)?.post(tap: .cghidEventTap)
+        CGEvent(keyboardEventSource: nil, virtualKey: 49, keyDown: false)?.post(tap: .cghidEventTap)
+    }
+    writeEvent("native-picker-control", fields: ["role": attribute(control, kAXRoleAttribute as String),
+               "focused": focused, "AXPress": pressed])
+    return pressed || focused
+}
+let pickerOpened = openPicker(pageRows)
 writeEvent("native-picker-open", fields: ["ready": ready, "opened": pickerOpened])
 usleep(700_000)
 let screenCapture = Process()
@@ -120,12 +139,11 @@ func setNativeField(_ field: AXUIElement, _ value: String) -> Bool {
     return true
 }
 
+var nativeSurfaceObserved = false
 var accepted: [String] = []
 for (index, colour) in ["#7C4DFF", "#28A77A"].enumerated() {
     if index > 0, let appElement {
-        if let control = flatten(appElement).first(where: { $0.1.localizedCaseInsensitiveContains("Custom colour picker") })?.0 {
-            _ = press(control)
-        }
+        _ = openPicker(flatten(appElement))
     }
     var nativeRows: [(AXUIElement, String)] = []
     let panelDeadline = Date(timeIntervalSinceNow: 8)
@@ -134,6 +152,7 @@ for (index, colour) in ["#7C4DFF", "#28A77A"].enumerated() {
         if !nativeRows.isEmpty { break }
         usleep(100_000)
     } while Date() < panelDeadline
+    nativeSurfaceObserved = nativeSurfaceObserved || !nativeRows.isEmpty
     writeEvent("native-panel-owner-probe", fields: ["nodeCount": nativeRows.count, "selection": index])
     if let sliders = nativeRows.first(where: {
         $0.1.localizedCaseInsensitiveContains("sliders") &&
@@ -275,7 +294,7 @@ if let selected = cases.first(where: { $0["id"] as? String == caseId }) {
         var verdict = "UNVERIFIED"
         var actual = "Native interaction was attempted; full scenario evidence is required before a verdict."
         var refs = ["recorder/native-events.jsonl", "recorder/page-accessibility.txt"]
-        if suffix == "NATIVE-PICKER" && ready && pickerOpened {
+        if suffix == "NATIVE-PICKER" && ready && pickerOpened && nativeSurfaceObserved {
             verdict = accepted.count == 2 ? "PASS" : "FAIL"
             actual = "Picker surface observed; native field entries: \(accepted.joined(separator: ", "))."
             refs = ["recorder/native-tree-picker.txt", videoRef]

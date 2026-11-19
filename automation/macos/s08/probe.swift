@@ -139,6 +139,7 @@ final class Probe {
     }
 
     func observe(_ name: String, _ window: NativeWindow? = nil, extra: [String: Any] = [:]) {
+        captureAccessibilityTree(name)
         var fields = extra
         fields["frontmostBundleID"] = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""
         fields["appIsActive"] = process.isActive
@@ -154,6 +155,40 @@ final class Probe {
         }
         fields["settingsWindowCount"] = windows().filter { $0.title == "Settings" }.count
         emit(name, fields)
+    }
+
+    private func captureAccessibilityTree(_ observation: String) {
+        guard let root = ProcessInfo.processInfo.environment["SHELL_EVIDENCE_DIR"] else { return }
+        let path = URL(fileURLWithPath: root).appendingPathComponent("recorder/accessibility-tree.jsonl")
+        var pending: [(AXUIElement, Int)] = [(application, 0)]
+        var nodes: [[String: Any]] = []
+        var cursor = 0
+        let deadline = ProcessInfo.processInfo.systemUptime + 3
+        while cursor < pending.count && nodes.count < 1500 && ProcessInfo.processInfo.systemUptime < deadline {
+            let (node, depth) = pending[cursor]
+            cursor += 1
+            AXUIElementSetMessagingTimeout(node, 0.25)
+            var row: [String: Any] = ["depth": depth]
+            for key in ["AXRole", "AXTitle", "AXDescription", "AXValue"] {
+                if let value = stringAttribute(node, key) { row[key] = String(value.prefix(1000)) }
+            }
+            if let frame = frameOf(node) { row["bounds"] = rectArray(frame) }
+            nodes.append(row)
+            if depth < 20, let children = attribute(node, "AXChildren") as? [AXUIElement] {
+                pending.append(contentsOf: children.prefix(max(0, 1500 - pending.count)).map { ($0, depth + 1) })
+            }
+        }
+        let snapshot: [String: Any] = ["observation": observation, "nodes": nodes,
+                                       "truncated": cursor < pending.count]
+        guard let data = try? JSONSerialization.data(withJSONObject: snapshot) else { return }
+        if !FileManager.default.fileExists(atPath: path.path) {
+            FileManager.default.createFile(atPath: path.path, contents: nil)
+        }
+        if let handle = try? FileHandle(forWritingTo: path) {
+            try? handle.seekToEnd()
+            try? handle.write(contentsOf: data + Data([0x0a]))
+            try? handle.close()
+        }
     }
 
     func sendComma(command: Bool = true, option: Bool = false) throws {
@@ -489,8 +524,16 @@ final class Probe {
         let settingsStillVisible = settingsWindow() != nil && settingsWindow().map { sheets(for: $0).count == 1 } == true
         let mainBefore = counterValue("Main actions:")
         try click("Increment main action counter")
-        let mainAfter = try waitUntil("the main action counter to increment") { self.counterValue("Main actions:") }
-        let mainChanged = mainBefore != mainAfter
+        var mainAfter = mainBefore ?? "unavailable"
+        do {
+            mainAfter = try waitUntil("the main action counter to increment") {
+                guard let current = self.counterValue("Main actions:"), current != mainBefore else { return nil }
+                return current
+            }
+        } catch {
+            emit("main-counter-timeout", ["before": mainAfter, "diagnostic": String(describing: error)])
+        }
+        let mainChanged = mainBefore != nil && mainBefore != mainAfter
         observe("S08-A06", settingsWindow(), extra: ["settingsStillVisibleWithSheet": settingsStillVisible, "mainCounterBefore": mainBefore ?? "unavailable", "mainCounterAfter": mainAfter, "mainCounterChanged": mainChanged, "caseId": "S08-MAC-03-parented-sheet-and-inactive-main"])
         try captureWholeDesktop("s08-sheet-scope.png")
         emitVerdict("S08-A06", expected: knownAssertions["S08-A06"]!, actual: "settingsStillVisibleWithSheet=\(settingsStillVisible); mainCounterChanged=\(mainChanged)", pass: settingsStillVisible && mainChanged)

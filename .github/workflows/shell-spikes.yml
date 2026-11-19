@@ -62,7 +62,7 @@ jobs:
           cargo +1.99.1 fmt --all -- --check
           cargo +1.99.1 metadata --locked --format-version 1 > evidence/cargo-metadata.json
       - name: Check case deadlines and immutable evidence snapshots
-        run: python ci/tests/test_round14.py
+        run: python -m unittest discover -s ci/tests -p 'test_round*.py'
       - name: Check JavaScript syntax
         shell: bash
         run: |
@@ -416,9 +416,11 @@ jobs:
         run: |
           test -n "$ANDROID_HOME"
           test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-          echo "$ANDROID_HOME/emulator" >> "$GITHUB_PATH"
+          {
+            echo "$ANDROID_HOME/cmdline-tools/latest/bin"
+            echo "$ANDROID_HOME/platform-tools"
+            echo "$ANDROID_HOME/emulator"
+          } >> "$GITHUB_PATH"
           echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
           test -e /dev/kvm
           sudo chmod a+rw /dev/kvm
@@ -466,17 +468,7 @@ jobs:
         with:
           python-version: 3.14.10
       - name: Install media evidence validator
-        env:
-          SHELL_APT_TIMEOUT_SECONDS: 120
-          SHELL_APT_ATTEMPTS: 2
-        run: |
-          if ! command -v ffprobe || ! command -v ffmpeg; then
-            bash ci/apt-host.sh update
-            bash ci/apt-host.sh install --yes --no-install-recommends ffmpeg
-          fi
-          command -v ffprobe ffmpeg
-          ffprobe -version
-          ffmpeg -version
+        run: bash ci/install-media-validator.sh
       - name: Download all one-wave evidence
         if: always()
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3
