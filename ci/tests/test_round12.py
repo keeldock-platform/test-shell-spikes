@@ -102,10 +102,15 @@ precondition(matchingAccessibilityText(["", "Native geometry: settings 1040×660
             (cell_dir / "assertions.json").write_text('{}')
             self.assertIn("hash mismatch", collector.audit_hashes(artifact)["errors"][0])
             # The upload boundary must seal after the final process/log write.
+            env_file = root / "github-env"
             subprocess.run([sys.executable, str(ROOT / "ci/hash-evidence.py")],
-                           env={**os.environ, "SHELL_EVIDENCE_DIR": str(artifact)},
+                           env={**os.environ, "SHELL_EVIDENCE_DIR": str(artifact),
+                                "GITHUB_ENV": str(env_file), "RUNNER_TEMP": str(root)},
                            check=True, capture_output=True)
-            self.assertEqual(collector.audit_hashes(artifact)["errors"], [])
+            snapshot = Path(env_file.read_text().strip().split("=", 1)[1])
+            self.assertEqual(collector.audit_hashes(snapshot)["errors"], [])
+            (cell_dir / "assertions.json").write_text('{"late":true}')
+            self.assertEqual(collector.audit_hashes(snapshot)["errors"], [])
 
     def test_linux_probe_envelope_survives_harness(self):
         with tempfile.TemporaryDirectory() as tmp:

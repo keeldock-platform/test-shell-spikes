@@ -29,23 +29,33 @@ provision_host() {
     return 78
   fi
 
+  local -a packages
   if [[ "$profile" == "Fedora current" ]]; then
-    sudo dnf install -y at-spi2-core dbus-daemon dbus-x11 ffmpeg-free gnome-shell gnome-session \
-      gsettings-desktop-schemas gnome-screenshot gtk3-devel webkit2gtk4.1-devel \
-      libappindicator-gtk3-devel openssl-devel librsvg2-devel libxdo-devel patchelf python3-pyatspi xorg-x11-utils xorg-x11-xauth xdotool xorg-x11-server-Xvfb ydotool pipewire wireplumber pipewire-gstreamer \
-      gstreamer1-plugins-base gstreamer1-plugins-good xdg-desktop-portal-gnome
+    packages=(at-spi2-core dbus-daemon dbus-x11 ffmpeg-free gnome-shell gnome-session gjs
+      gsettings-desktop-schemas gnome-screenshot gtk3-devel webkit2gtk4.1-devel
+      libappindicator-gtk3-devel openssl-devel librsvg2-devel libxdo-devel patchelf
+      python3-pyatspi xdpyinfo xprop xrandr xrdb xorg-x11-xauth xdotool xorg-x11-server-Xvfb
+      ydotool pipewire wireplumber pipewire-gstreamer gstreamer1-plugins-base
+      gstreamer1-plugins-good xdg-desktop-portal-gnome metacity mutter-devkit)
+    printf 'Provisioning resolved package set (%s/%s): %s\n' "$profile" "$session" "${packages[*]}"
+    sudo dnf repoquery --available "${packages[@]}" | tee "${diagnostics%.json}-packages.txt"
+    sudo dnf install -y "${packages[@]}"
   else
     bash ci/apt-host.sh update
     screenshot=gnome-screenshot
     if [[ "$profile" == "Ubuntu 24.04" ]]; then screenshot=gnome-screenshot=41.0-2build2; fi
-    bash ci/apt-host.sh install --yes --no-install-recommends \
-      at-spi2-core dbus-x11 ffmpeg gnome-shell gnome-session gsettings-desktop-schemas \
-      "$screenshot" libssl-dev librsvg2-dev libayatana-appindicator3-dev libgtk-3-dev libwebkit2gtk-4.1-dev patchelf \
-      python3-pyatspi x11-utils xauth xdotool xvfb
+    packages=(at-spi2-core dbus-x11 ffmpeg gnome-shell gnome-shell-common gnome-session gjs
+      gsettings-desktop-schemas "$screenshot" libssl-dev librsvg2-dev
+      libayatana-appindicator3-dev libgtk-3-dev libwebkit2gtk-4.1-dev patchelf
+      python3-pyatspi x11-utils x11-xserver-utils xauth xdotool xvfb metacity)
     if [[ "$session_slug" == "wayland" ]]; then
-      bash ci/apt-host.sh install --yes --no-install-recommends ydotool ydotoold \
-        pipewire wireplumber gstreamer1.0-pipewire gstreamer1.0-plugins-good xdg-desktop-portal-gnome
+      packages+=(ydotool pipewire wireplumber gstreamer1.0-pipewire gstreamer1.0-plugins-good xdg-desktop-portal-gnome)
+      if [[ "$profile" == "Ubuntu 24.04" ]]; then packages+=(ydotoold); else packages+=(mutter-dev-bin); fi
     fi
+    printf 'Provisioning resolved package set (%s/%s): %s\n' "$profile" "$session" "${packages[*]}"
+    apt-cache policy "${packages[@]}" | tee "${diagnostics%.json}-packages.txt"
+    bash ci/apt-host.sh --simulate install --yes --no-install-recommends "${packages[@]}"
+    bash ci/apt-host.sh install --yes --no-install-recommends "${packages[@]}"
   fi
   if [[ "$session_slug" == "wayland" && ! -e /dev/uinput ]]; then sudo modprobe uinput || true; fi
 
@@ -57,7 +67,10 @@ provision_host() {
   webkit_version="$(pkg-config --modversion webkit2gtk-4.1)"
   ffmpeg_version="$(ffmpeg -version | head -n 1)"
   package_names=(at-spi2-core dbus-x11 ffmpeg gnome-shell gnome-session gnome-screenshot libgtk-3-dev libwebkit2gtk-4.1-dev python3-pyatspi xdotool xvfb)
-  if [[ "$session_slug" == "wayland" ]]; then package_names+=(ydotool ydotoold); fi
+  if [[ "$session_slug" == "wayland" ]]; then
+    package_names+=(ydotool)
+    if [[ "$profile" == "Ubuntu 24.04" ]]; then package_names+=(ydotoold); fi
+  fi
   if [[ "$profile" == "Fedora current" ]]; then
     package_summary="$(rpm -qa | sort)"
     export SHELL_FEDORA_VERSION_ID="$(source /etc/os-release; echo "$VERSION_ID")"
@@ -165,13 +178,14 @@ run_in_session() {
     input_daemon_pid=""
     pipewire_pid=""
     wireplumber_pid=""
+    screencast_pid=""
     stop_capture_services() {
       if [[ -n "$shell_pid" ]]; then kill "$shell_pid" 2>/dev/null || true; wait "$shell_pid" 2>/dev/null || true; fi
       if [[ -n "$input_daemon_pid" ]]; then
         sudo --non-interactive pkill -x ydotoold 2>/dev/null || true
         wait "$input_daemon_pid" 2>/dev/null || true
       fi
-      for process_id in "$wireplumber_pid" "$pipewire_pid"; do
+      for process_id in "$screencast_pid" "$wireplumber_pid" "$pipewire_pid"; do
         if [[ -n "$process_id" ]]; then kill "$process_id" 2>/dev/null || true; wait "$process_id" 2>/dev/null || true; fi
       done
     }
@@ -182,14 +196,28 @@ run_in_session() {
       wireplumber >"${log}.wireplumber" 2>&1 &
       wireplumber_pid=$!
       export WAYLAND_DISPLAY=wayland-0
-      gnome-shell --nested --wayland --display-server >"$log" 2>&1 &
+      export SHELL_LINUX_COMPOSITOR=gnome-shell-wayland
+      if gnome-shell --help 2>&1 | grep -q -- --devkit; then
+        env -u WAYLAND_DISPLAY GDK_BACKEND=x11 gnome-shell --wayland --devkit --unsafe-mode >"$log" 2>&1 &
+      else
+        env -u WAYLAND_DISPLAY GDK_BACKEND=x11 gnome-shell --nested --wayland --display-server --unsafe-mode >"$log" 2>&1 &
+      fi
     else
-      gnome-shell --x11 --replace --sm-disable >"$log" 2>&1 &
+      if gnome-shell --help 2>&1 | grep -q -- --x11; then
+        export SHELL_LINUX_COMPOSITOR=gnome-shell-x11
+        gnome-shell --x11 --replace --sm-disable >"$log" 2>&1 &
+      else
+        export SHELL_LINUX_COMPOSITOR=metacity-x11
+        echo "GNOME Shell has no X11 backend; using distribution Metacity X11" | tee "${log}.backend"
+        metacity --replace --sm-disable >"$log" 2>&1 &
+      fi
     fi
     shell_pid=$!
     ready=0
     for _ in {1..120}; do
-      if gdbus introspect --session --dest org.gnome.Shell --object-path /org/gnome/Shell >/dev/null 2>&1; then ready=1; break; fi
+      if [[ "${SHELL_LINUX_COMPOSITOR:-}" == metacity-x11 ]]; then
+        if xprop -root _NET_SUPPORTING_WM_CHECK | grep -q "window id"; then ready=1; break; fi
+      elif gdbus introspect --session --dest org.gnome.Shell --object-path /org/gnome/Shell >/dev/null 2>&1; then ready=1; break; fi
       if ! kill -0 "$shell_pid" 2>/dev/null; then break; fi
       sleep 0.5
     done
@@ -197,9 +225,34 @@ run_in_session() {
       cat "$log" >&2 || true
       exit 78
     fi
-    export SHELL_GNOME_SESSION_READY=1
+    printf "Session backend=%s; GNOME=%s\n" "${SHELL_LINUX_COMPOSITOR:-gnome-shell-wayland}" "$(gnome-shell --version)" | tee "${log}.backend-version"
+    export SHELL_LINUX_SESSION_READY=1
+    if [[ "$SHELL_LINUX_COMPOSITOR" != metacity-x11 ]]; then export SHELL_GNOME_SESSION_READY=1; fi
     export SHELL_GNOME_VERSION="$(gnome-shell --version | tr -d '\''\r'\'')"
     if [[ "$XDG_SESSION_TYPE" == "wayland" ]]; then
+      wayland_socket=""
+      for _ in {1..40}; do
+        wayland_socket="$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name "wayland-*" -print | sort | head -n 1)"
+        if [[ -n "$wayland_socket" ]]; then break; fi
+        sleep 0.25
+      done
+      [[ -n "$wayland_socket" ]] || { echo "Compositor did not create a Wayland socket" >&2; exit 78; }
+      export WAYLAND_DISPLAY="${wayland_socket##*/}"
+      printf "Resolved Wayland socket: %s\n" "$WAYLAND_DISPLAY" | tee "${log}.wayland-socket"
+      export PATH="/usr/share/gnome-shell:$PATH"
+      if [[ -f /usr/share/gnome-shell/org.gnome.Shell.Screencast ]]; then
+        gjs -m /usr/share/gnome-shell/org.gnome.Shell.Screencast >"${log}.screencast" 2>&1 &
+        screencast_pid=$!
+      fi
+      ready=0
+      for _ in {1..40}; do
+        if timeout 3 gdbus introspect --session --dest org.gnome.Shell.Screencast --object-path /org/gnome/Shell/Screencast >"${log}.screencast-probe" 2>&1; then ready=1; break; fi
+        sleep 0.25
+      done
+      if [[ "$ready" != 1 ]]; then
+        cat "${log}.screencast" "${log}.screencast-probe" >&2 || true
+        exit 78
+      fi
       socket="$XDG_RUNTIME_DIR/.ydotool_socket"
       if grep -q -- --socket-path "${log}.input-help"; then
         sudo --non-interactive "$YDOTOOLD_BIN" --socket-path="$socket" --socket-own="$(id -u):$(id -g)" --socket-perm=0600 >"${log}.input" 2>&1 &

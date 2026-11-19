@@ -14,6 +14,7 @@ import sys
 import time
 from pathlib import Path
 
+from process_watch import watched
 from case_catalog import case_ids_for
 from discovery_authorization import discovery_authorization_errors
 
@@ -31,6 +32,32 @@ def environment_lock() -> dict:
 def execute(command: list[str], *, cwd: Path = ROOT) -> int:
     print("+ " + " ".join(command), flush=True)
     return subprocess.run(command, cwd=cwd, env=os.environ.copy(), check=False).returncode
+
+
+def run_case(platform, spike, case_id):
+    defaults = {'s01': 1200, 's02': 300, 's03': 600, 's08': 1200, 's10': 600, 's11': 600}
+    timeout = 900 if platform == 'ios' else defaults[spike]
+    status = watched([sys.executable, 'ci/run_case.py', platform, spike, case_id],
+                     label=f'{platform}/{spike}/{case_id}', timeout=timeout, cwd=ROOT,
+                     env=os.environ.copy(), cleanup_grace=20)
+    root = Path(os.environ.get('SHELL_EVIDENCE_DIR', 'evidence'))
+    if platform == 'windows':
+        from run_case import recorder_commands
+        output = root / 'spikes' / spike / case_id / 'video/capture.mkv'
+        command, pid_file = recorder_commands(platform, 'stop', output)
+        if pid_file.is_file():
+            print(f'Cleanup orphan capture after {case_id}', flush=True)
+            try:
+                stopped = subprocess.run(command, timeout=30, check=False)
+                if stopped.returncode:
+                    status = status or stopped.returncode
+            except subprocess.TimeoutExpired:
+                status = status or 124
+    path = root / 'spikes' / spike / case_id / 'recorder/case-process.json'
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({'caseId': case_id, 'exitCode': status,
+                               'timeoutSeconds': timeout, 'timedOut': status == 124}, indent=2) + '\n')
+    return status
 
 
 def start_android_emulator(api: str) -> int:
@@ -249,12 +276,12 @@ def install_ios_wrapper(udid: str) -> int:
 
 def install_android_wrapper() -> int:
     candidates = sorted((MOBILE / "gen/android").rglob("*.apk")) if (MOBILE / "gen/android").exists() else []
-    wrapper = next((path for path in candidates if "debug" in path.parts), None)
+    wrapper = next((path for path in candidates if "debug" in path.parts and "androidTest" not in path.parts), None)
     if wrapper is None:
         print("No debuggable Android APK was found.", file=sys.stderr)
         return 78
     sdk_root = os.environ.get("ANDROID_SDK_ROOT") or os.environ.get("ANDROID_HOME")
-    aapt = Path(sdk_root) / "build-tools" / "35.0.0" / "aapt" if sdk_root else None
+    aapt = Path(sdk_root) / "build-tools" / environment_lock()["android"]["buildTools"]["package"].split(";", 1)[1] / "aapt" if sdk_root else None
     if not aapt or not aapt.is_file():
         print("The pinned Android build-tools aapt is unavailable.", file=sys.stderr)
         return 78
@@ -466,8 +493,9 @@ def main() -> int:
                 os.environ["SHELL_CAPTURE_DEVICE"] = "UNVERIFIED"
 
     if args.platform == "linux":
-        if os.environ.get("SHELL_GNOME_SESSION_READY") != "1":
-            print("GNOME/Mutter session was not provisioned; refusing to build or run on the Ubuntu host.", file=sys.stderr)
+        backend = os.environ.get("SHELL_LINUX_COMPOSITOR")
+        if os.environ.get("SHELL_LINUX_SESSION_READY") != "1" or backend not in {"gnome-shell-x11", "gnome-shell-wayland", "metacity-x11"}:
+            print("Declared Linux GUI session was not provisioned; refusing to build or run on the Ubuntu host.", file=sys.stderr)
             return 78
     if args.platform == "android":
         api = os.environ.get("ANDROID_API_LEVEL", "")
@@ -493,6 +521,8 @@ def main() -> int:
     mobile_app_built = False
     if mobile:
         target = "ios" if args.platform == "ios" else "android"
+        if target == "android":
+            os.environ["GRADLE_USER_HOME"] = str(ROOT / "target/gradle-home")
         generation = execute(["bash", "ci/generate-mobile-projects.sh", target])
         if generation:
             if args.platform == "android":
@@ -527,6 +557,12 @@ def main() -> int:
             failures.append("android-install")
     if args.platform == "android":
         build_android_uiautomator()
+        instrumentation = run_command(["adb", "shell", "pm", "list", "instrumentation"])
+        expected = "org.example.shellspikes.mobile.test/androidx.test.runner.AndroidJUnitRunner"
+        print("Android installed instrumentation probe: " + (instrumentation or "unavailable"), flush=True)
+        if failures or not os.environ.get("SHELL_UIAUTOMATOR_APK") or expected not in (instrumentation or ""):
+            stop_android_emulator()
+            return 78
     if args.platform == "windows" and "s11" in args.spikes:
         build_windows_readback()
 
@@ -567,7 +603,7 @@ def main() -> int:
                 if not configure_xctest_project("ios", spike):
                     failures.append(f"{spike}-xctest-project-{device_key}")
                 for case_id in case_ids_for(spike, cell):
-                    status = execute([sys.executable, "ci/run_case.py", args.platform, spike, case_id])
+                    status = run_case(args.platform, spike, case_id)
                     if status:
                         failures.append(f"{spike}/{case_id}")
             if udid:
@@ -581,7 +617,7 @@ def main() -> int:
             os.environ["SHELL_CELL"] = cell
         for spike in args.spikes:
             for case_id in case_ids_for(spike, cell):
-                status = execute([sys.executable, "ci/run_case.py", args.platform, spike, case_id])
+                status = run_case(args.platform, spike, case_id)
                 if status:
                     failures.append(f"{spike}/{case_id}")
 

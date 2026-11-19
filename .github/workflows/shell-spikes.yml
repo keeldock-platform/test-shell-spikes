@@ -61,6 +61,8 @@ jobs:
           rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
           cargo +1.99.1 fmt --all -- --check
           cargo +1.99.1 metadata --locked --format-version 1 > evidence/cargo-metadata.json
+      - name: Check case deadlines and immutable evidence snapshots
+        run: python ci/tests/test_round14.py
       - name: Check JavaScript syntax
         shell: bash
         run: |
@@ -76,7 +78,7 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: shell-spikes-${{ inputs.frozen_sha }}-public-static-all-cases
-          path: evidence/
+          path: ${{ env.SHELL_UPLOAD_DIR }}
           retention-days: 14
           if-no-files-found: warn
 
@@ -85,7 +87,7 @@ jobs:
     needs: public-static
     if: github.ref == 'refs/heads/shell-spikes/integration-1118' && needs.public-static.result == 'success'
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 90
     env:
       SHELL_CELL: mac-desktop
       SHELL_SESSION: macOS-hosted-desktop
@@ -128,7 +130,7 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: shell-spikes-${{ inputs.frozen_sha }}-mac-desktop-all-cases
-          path: evidence/
+          path: ${{ env.SHELL_UPLOAD_DIR }}
           retention-days: 14
           if-no-files-found: warn
 
@@ -137,7 +139,7 @@ jobs:
     needs: public-static
     if: github.ref == 'refs/heads/shell-spikes/integration-1118' && needs.public-static.result == 'success'
     runs-on: windows-2025
-    timeout-minutes: 45
+    timeout-minutes: 130
     env:
       SHELL_CELL: win-desktop
       SHELL_SESSION: windows-hosted-desktop
@@ -183,7 +185,7 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: shell-spikes-${{ inputs.frozen_sha }}-win-desktop-all-cases
-          path: evidence/
+          path: ${{ env.SHELL_UPLOAD_DIR }}
           retention-days: 14
           if-no-files-found: warn
 
@@ -192,7 +194,7 @@ jobs:
     needs: public-static
     if: github.ref == 'refs/heads/shell-spikes/integration-1118' && needs.public-static.result == 'success'
     runs-on: windows-11-arm
-    timeout-minutes: 40
+    timeout-minutes: 30
     env:
       SHELL_CELL: win-client
       SHELL_SESSION: windows-11-arm-native-client
@@ -238,7 +240,7 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: shell-spikes-${{ inputs.frozen_sha }}-win-client-all-cases
-          path: evidence/
+          path: ${{ env.SHELL_UPLOAD_DIR }}
           retention-days: 14
           if-no-files-found: warn
 
@@ -247,7 +249,7 @@ jobs:
     needs: public-static
     if: github.ref == 'refs/heads/shell-spikes/integration-1118' && needs.public-static.result == 'success'
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -313,7 +315,7 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: shell-spikes-${{ inputs.frozen_sha }}-${{ matrix.cell }}-all-cases
-          path: evidence/
+          path: ${{ env.SHELL_UPLOAD_DIR }}
           retention-days: 14
           if-no-files-found: warn
 
@@ -322,7 +324,7 @@ jobs:
     needs: public-static
     if: github.ref == 'refs/heads/shell-spikes/integration-1118' && needs.public-static.result == 'success'
     runs-on: macos-26
-    timeout-minutes: 45
+    timeout-minutes: 100
     env:
       SHELL_CELL: ios-colour
       SHELL_SESSION: iOS-simulator-WKWebView
@@ -367,7 +369,7 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: shell-spikes-${{ inputs.frozen_sha }}-ios-colour-all-cases
-          path: evidence/
+          path: ${{ env.SHELL_UPLOAD_DIR }}
           retention-days: 14
           if-no-files-found: warn
 
@@ -376,7 +378,7 @@ jobs:
     needs: public-static
     if: github.ref == 'refs/heads/shell-spikes/integration-1118' && needs.public-static.result == 'success'
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -422,6 +424,8 @@ jobs:
           sudo chmod a+rw /dev/kvm
       - name: Probe Android runner tools and acceleration
         run: python3 ci/probe-runner.py android
+      - name: Probe pinned Android dependency resolution
+        run: python3 ci/probe-android-dependencies.py
       - name: Run Android API-level cases
         run: bash ci/run-android.sh
       - name: Reject jobs without executed native observations
@@ -435,7 +439,7 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: shell-spikes-${{ inputs.frozen_sha }}-android-api-${{ matrix.api }}-all-cases
-          path: evidence/
+          path: ${{ env.SHELL_UPLOAD_DIR }}
           retention-days: 14
           if-no-files-found: warn
 
@@ -491,6 +495,6 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: shell-spikes-${{ inputs.frozen_sha }}-collect-all-cases
-          path: evidence/
+          path: ${{ env.SHELL_UPLOAD_DIR }}
           retention-days: 14
           if-no-files-found: warn

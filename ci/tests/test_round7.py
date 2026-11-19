@@ -85,7 +85,7 @@ class AndroidBundledTests(unittest.TestCase):
             def execute(command, **kwargs):
                 calls.append(command)
                 return 78 if '--android-active' in command else 0
-            with self.subTest(api=api), patch.dict(os.environ, {'ANDROID_API_LEVEL': str(api)}), patch.object(sys, 'argv', ['run-platform.py', 'android', '--spikes', 's10', 's11']), patch.object(platform, 'execute', side_effect=execute), patch.object(platform, 'start_android_emulator', return_value=0) as boot, patch.object(platform, 'stop_android_emulator', return_value=0), patch.object(platform, 'install_android_wrapper', return_value=0), patch.object(platform, 'build_android_uiautomator'):
+            with self.subTest(api=api), patch.dict(os.environ, {'ANDROID_API_LEVEL': str(api), 'SHELL_UIAUTOMATOR_APK': 'fixture.apk'}), patch.object(sys, 'argv', ['run-platform.py', 'android', '--spikes', 's10', 's11']), patch.object(platform, 'execute', side_effect=execute), patch.object(platform, 'start_android_emulator', return_value=0) as boot, patch.object(platform, 'stop_android_emulator', return_value=0), patch.object(platform, 'install_android_wrapper', return_value=0), patch.object(platform, 'build_android_uiautomator'), patch.object(platform, 'run_command', return_value='org.example.shellspikes.mobile.test/androidx.test.runner.AndroidJUnitRunner'), patch.object(platform, 'run_case', side_effect=lambda target, spike, case: execute([sys.executable, 'ci/run_case.py', target, spike, case])):
                 self.assertEqual(platform.main(), 0)
                 boot.assert_called_once_with(str(api))
             active = next(i for i,c in enumerate(calls) if '--android-active' in c)

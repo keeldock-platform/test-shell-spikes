@@ -123,6 +123,8 @@ def recorder_commands(platform_name: str, action: str, output: Path) -> tuple[li
         "android": ROOT / "ci/recorders/android.sh",
     }
     if platform_name == "windows":
+        if action == "start":
+            return ([sys.executable, str(ROOT / "ci/recorders/windows-start.py"), str(output)], output.with_suffix(".pid"))
         return (["pwsh", "-NoProfile", "-File", str(ROOT / "ci/recorders/windows.ps1"), action, str(output)], output.with_suffix(".pid"))
     return (["bash", str(scripts[platform_name]), action, str(output)], output.with_suffix(".pid"))
 
@@ -739,6 +741,7 @@ def main() -> int:
             "exitCode": configured.returncode, "stdout": configured.stdout,
             "stderr": configured.stderr,
         }, indent=2) + "\n")
+    print(f"PHASE {case_id} native-preflight", flush=True)
     native_preflight = collect_native_preflight(platform_name, scenario)
     s01_displays: list[dict] = []
     if platform_name == "macos" and spike == "s01" and os.environ.get("SHELL_S01_DISPLAYS_JSON"):
@@ -764,6 +767,7 @@ def main() -> int:
         "runnerImage": os.environ.get("ImageOS", "unavailable"),
         "runnerImageVersion": os.environ.get("ImageVersion", "unavailable"),
         "platform": platform_name,
+        "linuxCompositor": os.environ.get("SHELL_LINUX_COMPOSITOR"),
         "os": platform.platform(),
         "distribution": os.environ.get("LINUX_DISTRO") or os.environ.get("S02_DISTRIBUTION") or release.get("PRETTY_NAME"),
         "distributionId": release.get("ID"),
@@ -833,6 +837,7 @@ def main() -> int:
     os.environ["SHELL_CAPTURE_CLOCK_FILE"] = str(scenario / "recorder" / "capture-clock.json")
     if platform_name == "macos" and spike == "s01":
         os.environ["S01_NATIVE_EVENTS_SOURCE"] = str(scenario / "recorder" / "s01-events.jsonl")
+    print(f"PHASE {case_id} recorder-start", flush=True)
     start_command, pid_file = recorder_commands(platform_name, "start", recorder_output)
     recorder_started = False
     capture_clock_path = scenario / "recorder" / "capture-clock.json"
@@ -904,8 +909,11 @@ def main() -> int:
             (scenario / "recorder" / "adapter-status.json").write_text(json.dumps({"status": "UNVERIFIED", "reason": "native automation adapter missing"}, indent=2) + "\n", encoding="utf-8")
         else:
             try:
-                completed = subprocess.run([*adapter], cwd=ROOT, env=os.environ.copy(), timeout=int(os.environ.get("SHELL_CASE_TIMEOUT_SECONDS", "1800")), check=False)
-                adapter_status = completed.returncode
+                from process_watch import watched
+                budget = 600 if platform_name == "ios" else {"s01": 900, "s02": 120, "s08": 600}.get(spike, 240)
+                adapter_status = watched(adapter, label=f"{case_id}/native-adapter",
+                                         timeout=int(os.environ.get("SHELL_CASE_TIMEOUT_SECONDS", str(budget))),
+                                         cwd=ROOT, env=os.environ.copy())
             except (OSError, subprocess.TimeoutExpired) as error:
                 (scenario / "recorder" / "adapter-status.json").write_text(json.dumps({"status": "UNVERIFIED", "reason": f"{type(error).__name__}"}, indent=2) + "\n", encoding="utf-8")
     except OSError as error:
@@ -1096,7 +1104,6 @@ def main() -> int:
     }
     (scenario / "recorder/case-diagnostics.json").write_text(json.dumps(probe, indent=2) + "\n")
     print("Native case probe: " + json.dumps(probe), flush=True)
-    write_hashes(evidence)
     incomplete = any(item.get("verdict") in {"UNVERIFIED", "FAIL"} for item in results)
     return 1 if adapter_status or incomplete or not recorder_started else 0
 

@@ -11,11 +11,21 @@ test_apk="${output_dir}/shell-spike-uiautomator.apk"
 
 [[ -x "$gradle_wrapper" ]] || { echo "Generated Android Gradle wrapper is unavailable" >&2; exit 78; }
 [[ -d "$app_module" ]] || { echo "Generated Android app module is unavailable" >&2; exit 78; }
+compgen -G "$app_module/src/main/jniLibs/x86_64/*.so" >/dev/null || {
+  find "$app_module/src/main/jniLibs" -type f -name '*.so' -print >&2 || true
+  echo "Tauri debug x86_64 native build must finish before instrumentation assembly" >&2
+  exit 78
+}
 mkdir -p "$output_dir"
 rm -f "$test_apk"
 
 cat >"$init_script" <<EOF
 allprojects {
+    tasks.configureEach { task ->
+        if (task.name.startsWith("rustBuild")) {
+            task.onlyIf { false }
+        }
+    }
     afterEvaluate { project ->
         if (project.path == ":app" && project.plugins.hasPlugin("com.android.application")) {
             project.android.compileSdk = 36
@@ -35,7 +45,7 @@ allprojects {
 }
 EOF
 
-"$gradle_wrapper" --project-dir "$android_project" --no-daemon --init-script "$init_script" :app:assembleUniversalDebugAndroidTest
+"$gradle_wrapper" --project-dir "$android_project" --no-daemon --no-configuration-cache --init-script "$init_script" :app:assembleUniversalDebugAndroidTest
 
 candidates=()
 while IFS= read -r candidate; do

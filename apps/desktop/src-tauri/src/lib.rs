@@ -59,6 +59,13 @@ fn record_renderer_event(payload: String) -> Result<(), String> {
 }
 
 fn append_event(path: &std::path::Path, event: &serde_json::Value) -> Result<(), String> {
+    static EVENT_WRITE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let mut line =
+        serde_json::to_vec(event).map_err(|_| "renderer event could not be encoded".to_owned())?;
+    line.push(b'\n');
+    let _guard = EVENT_WRITE
+        .lock()
+        .map_err(|_| "renderer event writer is unavailable".to_owned())?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)
             .map_err(|_| "event evidence directory could not be created".to_owned())?;
@@ -68,9 +75,7 @@ fn append_event(path: &std::path::Path, event: &serde_json::Value) -> Result<(),
         .append(true)
         .open(path)
         .map_err(|_| "renderer event evidence could not be opened".to_owned())?;
-    serde_json::to_writer(&mut file, event)
-        .map_err(|_| "renderer event could not be encoded".to_owned())?;
-    file.write_all(b"\n")
+    file.write_all(&line)
         .map_err(|_| "renderer event could not be written".to_owned())
 }
 

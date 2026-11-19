@@ -177,7 +177,9 @@ class RoundFive(unittest.TestCase):
         (repo / 'ci').mkdir(parents=True)
         shutil.copy(ROOT / 'ci/build-android-uiautomator.sh', repo / 'ci')
         project = repo / 'apps/test-shell-mobile/src-tauri/gen/android'
-        (project / 'app').mkdir(parents=True)
+        native = project / 'app/src/main/jniLibs/x86_64/libfixture.so'
+        native.parent.mkdir(parents=True)
+        native.write_bytes(b'previous Tauri native build')
         wrapper = project / 'gradlew'
         wrapper.write_text("#!/bin/bash\nset -eu\n[[ \"$1\" == --project-dir ]]\ncd \"$2\"\n[[ \"${@: -1}\" == :app:assembleUniversalDebugAndroidTest ]]\nmkdir -p app/build/outputs/apk/androidTest/universal/debug\nprintf apk > app/build/outputs/apk/androidTest/universal/debug/app-debug-androidTest.apk\n")
         wrapper.chmod(0o755)

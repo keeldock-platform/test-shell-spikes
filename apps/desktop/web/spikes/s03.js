@@ -134,10 +134,13 @@ export async function registerSpike({ root, caseId, invoke, frame, record }) {
       blockers: [...header.querySelectorAll("[data-s03-blocker]")].map(rectFor),
       cssToGdkScale,
     };
-    emptyHeader.setAttribute(
-      "aria-description",
-      `CSS header bounds ${JSON.stringify(regions.header)}; devicePixelRatio=${window.devicePixelRatio}; cssToGdkScale=${cssToGdkScale}`,
-    );
+    let geometryDescription = root.querySelector("#s03-geometry-description");
+    if (!geometryDescription) {
+      geometryDescription = node("span", { id: "s03-geometry-description", hidden: "" });
+      root.append(geometryDescription);
+    }
+    geometryDescription.textContent = `CSS header bounds ${JSON.stringify(regions.header)}; devicePixelRatio=${window.devicePixelRatio}; cssToGdkScale=${cssToGdkScale}`;
+    emptyHeader.setAttribute("aria-describedby", "s03-geometry-description");
     geometryUpdate = geometryUpdate.then(async () => {
       await invokeS03("set_header_regions", { regions });
       record("s03-header-geometry", {

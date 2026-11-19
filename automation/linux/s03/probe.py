@@ -369,8 +369,13 @@ def target_point(node, rect: dict, pyatspi, artifact_dir: Path, case_id: str, ta
     point = {"x": rect["x"] + rect["width"] // 2, "y": rect["y"] + rect["height"] // 2}
     description = accessible_description(node)
     scale_ok = "devicePixelRatio=1" in description and "cssToGdkScale=1" in description
-    if target_name == "Empty header area" and not scale_ok:
-        raise ProbeUnavailable("AT-SPI did not expose the 1:1 CSS/GDK scale description")
+    if target_name == "Empty header area":
+        scale_probe = {"description": description, "scaleConfirmed": scale_ok,
+                       "target": accessible_snapshot(node, pyatspi)}
+        write_json(artifact_dir / "recorder/s03-scale-probe.json", scale_probe)
+        print("S03 accessibility scale probe: " + json.dumps(scale_probe), flush=True)
+        if not scale_ok:
+            raise ProbeUnavailable("AT-SPI did not expose the 1:1 CSS/GDK scale description")
 
     window_rect = accessible_window_rect(node, pyatspi)
 

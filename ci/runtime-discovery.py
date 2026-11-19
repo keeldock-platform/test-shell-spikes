@@ -32,9 +32,9 @@ def authorized(policy, env):
 def plan(target, output):
     # Embedded WKWebView updates with its OS. Never substitute a browser binary.
     if target == 'macos':
-        return [['sudo', 'softwareupdate', '--install', '--all']]
+        return []
     if target == 'ios':
-        return [['xcodebuild', '-downloadPlatform', 'iOS']]
+        return []
     if target == 'android':
         api = os.environ['ANDROID_API_LEVEL']
         android = json.loads((ROOT / 'ci/environment-lock.json').read_text())['android']
@@ -198,6 +198,8 @@ def record_runtime(scenario, environment):
               'verdict': 'UNVERIFIED', 'reason': 'Discovery observations require coordinator review and freeze before runtime-dependent PASS.'}
     record['runtimePayloadSha256'] = hashlib.sha256(json.dumps(sorted((a['sha256'], a['bytes']) for a in artifacts)).encode()).hexdigest() if artifacts else None
     record['candidatePins']['runtimeDiscovery.runtimePayloadSha256'] = record['runtimePayloadSha256']
+    if target in {'macos', 'ios'}:
+        record['latestStableReason'] = 'Hosted image runtime observed without OS or simulator installation; newest stable status requires coordinator review.'
     if target == 'android':
         record.update(android_observation)
         record['source'] = 'official-sdkmanager-system-image-bundled'
@@ -245,8 +247,8 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     records = execute_plan(commands, output)
     (output / 'install.json').write_text(json.dumps({'platform': args.platform, 'channel': 'official-stable',
-        'scope': 'latest offered by the official channel for the declared OS/API profile',
-        'status': 'installed' if len(records) == len(commands) and all(r.get('exitCode') == 0 for r in records) else 'UNVERIFIED',
+        'scope': 'hosted image runtime; OS and simulator installation disabled' if args.platform in {'macos', 'ios'} else 'latest offered by the official channel for the declared OS/API profile',
+        'status': 'observed-host-image' if args.platform in {'macos', 'ios'} else 'installed' if len(records) == len(commands) and all(r.get('exitCode') == 0 for r in records) else 'UNVERIFIED',
         'commands': records}, indent=2) + '\n')
     # Failure never falls back to a silent preinstalled runtime.
     return 0 if all(r.get('exitCode') == 0 for r in records) else 78

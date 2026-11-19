@@ -62,7 +62,13 @@ def children(node):
 
 def label(node):
     try:
-        return " ".join(str(value) for value in (node.name, node.getRoleName()) if value)
+        values = [node.name, node.getRoleName()]
+        try:
+            text = node.queryText()
+            values.append(text.getText(0, min(text.characterCount, 4096)))
+        except Exception:
+            pass
+        return " ".join(str(value) for value in values if value)
     except Exception:
         return ""
 
@@ -75,7 +81,10 @@ def walk(node):
 
 def find(text, scope=desktop):
     needle = text.casefold()
-    return next((node for node in walk(scope) if needle in label(node).casefold()), None)
+    matches = [node for node in walk(scope) if needle in label(node).casefold()]
+    return next((node for node in matches if any(role in node.getRoleName().casefold()
+                for role in ("button", "entry", "text", "color chooser", "colour chooser"))),
+                matches[0] if matches else None)
 
 
 def press(node):
@@ -83,11 +92,25 @@ def press(node):
         for index in range(node.queryAction().nActions):
             name = node.queryAction().getName(index).casefold()
             if name in {"click", "press", "activate"}:
-                node.queryAction().doAction(index)
-                return True
+                if node.queryAction().doAction(index):
+                    return True
     except Exception:
         pass
-    return False
+    try:
+        box = node.queryComponent().getExtents(pyatspi.DESKTOP_COORDS)
+        if box.width <= 0 or box.height <= 0:
+            return False
+        x, y = box.x + box.width // 2, box.y + box.height // 2
+        if is_wayland:
+            input_command("mousemove", "--absolute", "--x", str(x), "--y", str(y))
+            input_command("click", "0xC0")
+        else:
+            input_command("mousemove", "--sync", str(x), str(y))
+            input_command("click", "1")
+        log("native-pointer-press", target=label(node), x=x, y=y)
+        return True
+    except Exception:
+        return False
 
 
 def snapshot():
@@ -100,8 +123,17 @@ def log(name, **fields):
         stream.write(json.dumps(row) + "\n")
 
 
+def editable(node):
+    try:
+        node.queryEditableText()
+        return node.getState().contains(pyatspi.STATE_SHOWING)
+    except Exception:
+        return False
+
+
 def type_native_colour(value):
-    fields = [node for node in walk(desktop) if "hex" in label(node).casefold() or "html" in label(node).casefold()]
+    fields = [node for node in walk(desktop) if editable(node) and
+              any(token in (node.name or "").casefold() for token in ("html", "color name", "colour name", "hexadecimal"))]
     if not fields:
         return False
     try:
@@ -115,11 +147,8 @@ def type_native_colour(value):
 
 
 def type_page_hex(value):
-    target = next((node for node in walk(desktop)
-                   if "hex" in label(node).casefold() and "text" in label(node).casefold()), None)
-    if target is None:
-        target = next((node for node in walk(desktop)
-                       if "hex" in label(node).casefold() and "entry" in label(node).casefold()), None)
+    target = next((node for node in walk(desktop) if editable(node)
+                   and (node.name or "").strip().casefold() == "hex"), None)
     if target is None:
         return False
     try:

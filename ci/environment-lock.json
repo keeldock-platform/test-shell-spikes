@@ -251,7 +251,11 @@
         "package": "system-images;android-35;google_apis;x86_64",
         "revisionSource": "sdkmanager --list_installed output recorded after installation"
       }
-    }
+    },
+    "kotlinGradlePlugin": "2.2.21",
+    "gradle": "8.14.3",
+    "gradleSha256": "bd71102213493060956ec229d946beee57158dbd89d0e62b91bca0fa2c5f3531",
+    "androidGradlePlugin": "8.11.1"
   },
   "recorders": {
     "ffmpeg": {

@@ -113,6 +113,9 @@ function Write-Event([string]$Name, [hashtable]$Data = @{}) {
         data = $Data
     }
     $script:CaseEvents.Add($record)
+    $progressPath = Join-Path $script:EvidenceRoot 'recorder/s02-progress.jsonl'
+    [System.IO.File]::AppendAllText($progressPath, ($record | ConvertTo-Json -Depth 8 -Compress) + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
+    [Console]::WriteLine("S02 progress: $($script:CurrentCase) $Name")
     return $record.sequenceId
 }
 
@@ -197,6 +200,7 @@ function Start-OrAttachApp {
         }
     }
     $script:RestartAfterClose = $false
+    [Console]::WriteLine("S02 phase: waiting for native window for process $($script:Process.Id)")
     $script:Window = Wait-AppWindow $script:Process.Id
     $null = Wait-ByName 'S02 sample input' 30
     $null = Wait-ByName 'S02 hit-test geometry registered' 30
@@ -566,7 +570,8 @@ function Invoke-OneCase($Case) {
 
     try {
         Start-OrAttachApp
-        $script:Window = Wait-AppWindow $script:Process.Id
+        [Console]::WriteLine("S02 phase: waiting for native window for process $($script:Process.Id)")
+    $script:Window = Wait-AppWindow $script:Process.Id
         Ensure-KitMode $Case
         $frameBefore = Save-DesktopFrame 'before'
         switch ($Case.id) {
