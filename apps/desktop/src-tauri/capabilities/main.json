@@ -1,0 +1,32 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Minimal permissions for the synthetic main window.",
+  "windows": ["main"],
+  "permissions": [
+    "allow-selected-spike",
+    "allow-selected-case",
+    "allow-record-renderer-event",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-start-dragging",
+    "s08-settings:allow-s08-open-settings",
+    "s08-settings:allow-s08-main-test-controls",
+    "s01-traffic-lights:allow-s01-reposition-traffic-lights",
+    "s01-traffic-lights:allow-s01-inspect-traffic-lights",
+    "s01-traffic-lights:allow-s01-set-fullscreen",
+    "s02-system-menu:allow-s02-open-system-menu-at-origin",
+    "s02-system-menu:allow-s02-set-hit-test-regions",
+    "s02-system-menu:allow-s02-set-menu-mode",
+    "s02-system-menu:allow-s02-dispatch-system-command",
+    "s02-system-menu:allow-s02-set-window-state",
+    "s02-system-menu:allow-s02-close-after-guard",
+    "s02-system-menu:allow-s02-get-window-menu-state",
+    "s03-gnome-menu:allow-set-header-regions",
+    "s03-gnome-menu:allow-set-menu-mode",
+    "s03-gnome-menu:allow-set-test-maximized",
+    "s03-gnome-menu:allow-fallback-window-state",
+    "s03-gnome-menu:allow-perform-fallback-action",
+    "s11-accent:allow-current-accent"
+  ]
+}

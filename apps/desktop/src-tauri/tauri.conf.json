@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Test Shell",
+  "version": "0.1.0",
+  "identifier": "org.example.shellspikes",
+  "build": {
+    "frontendDist": "../dist/web"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Test Shell",
+        "url": "index.html",
+        "width": 1180,
+        "height": 820,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "trafficLightPosition": { "x": 14, "y": 14 }
+      }
+    ],
+    "security": {
+      "capabilities": ["main", "settings"],
+      "freezePrototype": true,
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: asset: http://asset.localhost; font-src 'self'; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; frame-src 'none'; worker-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": false
+  },
+  "plugins": {}
+}

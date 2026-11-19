@@ -1,0 +1,420 @@
+name: Shell spikes single CI wave
+
+on:
+  workflow_dispatch:
+    inputs:
+      frozen_sha:
+        description: Full 40-character source SHA approved for this one wave
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shell-spikes-one-wave
+  cancel-in-progress: false
+
+env:
+  FROZEN_SHA: ${{ inputs.frozen_sha }}
+  SHELL_EVIDENCE_DIR: evidence
+
+jobs:
+  public-static:
+    name: public-static
+    if: github.ref == 'refs/heads/shell-spikes/integration-1118'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout the supplied frozen SHA
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          ref: ${{ inputs.frozen_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Guard dispatch ref and frozen SHA
+        id: dispatch-guard
+        shell: bash
+        run: |
+          [[ "$GITHUB_REF" == "refs/heads/shell-spikes/integration-1118" ]] || exit 1
+          [[ "$GITHUB_REF_TYPE" == "branch" ]] || { echo "dispatch must target a branch"; exit 1; }
+          [[ "$FROZEN_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "frozen SHA must contain 40 lowercase hexadecimal characters"; exit 1; }
+          [[ "$(git rev-parse HEAD)" == "$FROZEN_SHA" ]] || { echo "checkout does not match frozen SHA"; exit 1; }
+      - name: Prepare evidence after dispatch guards
+        run: python3 ci/prepare-evidence.py
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.11.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: 3.14.10
+      - name: Check frozen environment inputs
+        run: python ci/check-frozen-inputs.py
+      - name: Install the exact JavaScript graph
+        run: npm ci --ignore-scripts
+      - name: Check public source and lane integration
+        run: |
+          python ci/public-source-check.py
+          python ci/validate-scaffold.py
+      - name: Check Rust formatting and locked graph
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
+          cargo +1.99.1 fmt --all -- --check
+          cargo +1.99.1 metadata --locked --format-version 1 > evidence/cargo-metadata.json
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          while IFS= read -r file; do node --check "$file"; done < <(find apps/desktop/web pages ci -type f \( -name '*.js' -o -name '*.mjs' \) -print)
+      - name: Check workflow YAML syntax
+        run: |
+          ruby -e 'require "yaml"; YAML.load_file(".github/workflows/shell-spikes.yml", aliases: true)'
+      - name: Upload static evidence
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: shell-spikes-${{ inputs.frozen_sha }}-public-static-all-cases
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: warn
+
+  mac-desktop:
+    name: mac-desktop
+    needs: public-static
+    if: github.ref == 'refs/heads/shell-spikes/integration-1118' && needs.public-static.result == 'success'
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      SHELL_CELL: mac-desktop
+      SHELL_SESSION: macOS-hosted-desktop
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          ref: ${{ inputs.frozen_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Guard dispatch ref and frozen SHA
+        id: dispatch-guard
+        run: |
+          test "$GITHUB_REF" = "refs/heads/shell-spikes/integration-1118"
+          test "$GITHUB_REF_TYPE" = "branch"
+          test "$(git rev-parse HEAD)" = "$FROZEN_SHA"
+      - run: python3 ci/prepare-evidence.py
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.11.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: 3.14.10
+      - name: Install toolchain and renderer dependencies
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
+          npm ci --ignore-scripts
+      - name: Run shared desktop and serial macOS cases
+        run: bash ci/run-macos.sh
+      - name: Upload macOS evidence
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: shell-spikes-${{ inputs.frozen_sha }}-mac-desktop-all-cases
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: warn
+
+  win-desktop:
+    name: win-desktop
+    needs: public-static
+    if: github.ref == 'refs/heads/shell-spikes/integration-1118' && needs.public-static.result == 'success'
+    runs-on: windows-2025
+    timeout-minutes: 45
+    env:
+      SHELL_CELL: win-desktop
+      SHELL_SESSION: windows-hosted-desktop
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          ref: ${{ inputs.frozen_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Guard dispatch ref and frozen SHA
+        id: dispatch-guard
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -ne "refs/heads/shell-spikes/integration-1118") { throw "dispatch ref is not the approved branch" }
+          if ($env:GITHUB_REF_TYPE -ne "branch") { throw "dispatch must target a branch" }
+          if ((git rev-parse HEAD).Trim() -ne $env:FROZEN_SHA) { throw "checkout does not match frozen SHA" }
+      - run: py -3 ci/prepare-evidence.py
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.11.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: 3.14.10
+      - name: Install toolchain and renderer dependencies
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
+          npm ci --ignore-scripts
+      - name: Run desktop Windows cases
+        shell: pwsh
+        run: ./ci/run-windows.ps1
+      - name: Upload Windows desktop evidence
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: shell-spikes-${{ inputs.frozen_sha }}-win-desktop-all-cases
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: warn
+
+  win-client:
+    name: win-client
+    needs: public-static
+    if: github.ref == 'refs/heads/shell-spikes/integration-1118' && needs.public-static.result == 'success'
+    runs-on: windows-11-arm
+    timeout-minutes: 40
+    env:
+      SHELL_CELL: win-client
+      SHELL_SESSION: windows-11-arm-native-client
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          ref: ${{ inputs.frozen_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Guard dispatch ref and frozen SHA
+        id: dispatch-guard
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -ne "refs/heads/shell-spikes/integration-1118") { throw "dispatch ref is not the approved branch" }
+          if ($env:GITHUB_REF_TYPE -ne "branch") { throw "dispatch must target a branch" }
+          if ((git rev-parse HEAD).Trim() -ne $env:FROZEN_SHA) { throw "checkout does not match frozen SHA" }
+      - run: py -3 ci/prepare-evidence.py
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.11.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: 3.14.10
+      - name: Install toolchain and renderer dependencies
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
+          npm ci --ignore-scripts
+      - name: Run ARM64 native system-menu and Snap cases
+        shell: pwsh
+        run: ./ci/run-windows-client.ps1
+      - name: Upload Windows ARM64 evidence
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: shell-spikes-${{ inputs.frozen_sha }}-win-client-all-cases
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: warn
+
+  linux-gui:
+    name: linux-gui (${{ matrix.cell }})
+    needs: public-static
+    if: github.ref == 'refs/heads/shell-spikes/integration-1118' && needs.public-static.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - cell: linux-ubuntu-24.04-x11
+            distro: Ubuntu 24.04
+            session: x11
+          - cell: linux-ubuntu-24.04-wayland
+            distro: Ubuntu 24.04
+            session: wayland
+          - cell: linux-ubuntu-26.04-x11
+            distro: Ubuntu 26.04
+            session: x11
+          - cell: linux-ubuntu-26.04-wayland
+            distro: Ubuntu 26.04
+            session: wayland
+          - cell: linux-fedora-current-x11
+            distro: Fedora current
+            session: x11
+          - cell: linux-fedora-current-wayland
+            distro: Fedora current
+            session: wayland
+    env:
+      SHELL_CELL: ${{ matrix.cell }}
+      SHELL_SESSION: ${{ matrix.distro }}-${{ matrix.session }}
+      LINUX_DISTRO: ${{ matrix.distro }}
+      LINUX_SESSION: ${{ matrix.session }}
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          ref: ${{ inputs.frozen_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Guard dispatch ref and frozen SHA
+        id: dispatch-guard
+        run: |
+          test "$GITHUB_REF" = "refs/heads/shell-spikes/integration-1118"
+          test "$GITHUB_REF_TYPE" = "branch"
+          test "$(git rev-parse HEAD)" = "$FROZEN_SHA"
+      - run: python3 ci/prepare-evidence.py
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.11.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: 3.14.10
+      - name: Install toolchain and renderer dependencies
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
+          npm ci --ignore-scripts
+      - name: Provision Ubuntu 24.04 GNOME session or record the declared fallback
+        run: bash ci/run-linux.sh
+      - name: Upload Linux compositor evidence
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: shell-spikes-${{ inputs.frozen_sha }}-${{ matrix.cell }}-all-cases
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: warn
+
+  ios-colour:
+    name: ios-colour
+    needs: public-static
+    if: github.ref == 'refs/heads/shell-spikes/integration-1118' && needs.public-static.result == 'success'
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      SHELL_CELL: ios-colour
+      SHELL_SESSION: iOS-simulator-WKWebView
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          ref: ${{ inputs.frozen_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Guard dispatch ref and frozen SHA
+        id: dispatch-guard
+        run: |
+          test "$GITHUB_REF" = "refs/heads/shell-spikes/integration-1118"
+          test "$GITHUB_REF_TYPE" = "branch"
+          test "$(git rev-parse HEAD)" = "$FROZEN_SHA"
+      - run: python3 ci/prepare-evidence.py
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.11.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: 3.14.10
+      - name: Install toolchain, mobile CLI, and renderer dependencies
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
+          rustup target add aarch64-apple-ios-sim
+          cargo install tauri-cli --version 2.12.5 --locked
+          npm ci --ignore-scripts
+      - name: Build unsigned simulator wrapper and run iPhone and iPad cases serially
+        run: bash ci/run-ios.sh
+      - name: Upload iOS evidence
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: shell-spikes-${{ inputs.frozen_sha }}-ios-colour-all-cases
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: warn
+
+  android:
+    name: android (API ${{ matrix.api }})
+    needs: public-static
+    if: github.ref == 'refs/heads/shell-spikes/integration-1118' && needs.public-static.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [30, 31, 35]
+    env:
+      ANDROID_API_LEVEL: ${{ matrix.api }}
+      SHELL_CELL: android-api-${{ matrix.api }}
+      SHELL_SESSION: android-emulator-api-${{ matrix.api }}
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          ref: ${{ inputs.frozen_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Guard dispatch ref and frozen SHA
+        id: dispatch-guard
+        run: |
+          test "$GITHUB_REF" = "refs/heads/shell-spikes/integration-1118"
+          test "$GITHUB_REF_TYPE" = "branch"
+          test "$(git rev-parse HEAD)" = "$FROZEN_SHA"
+      - run: python3 ci/prepare-evidence.py
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.11.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: 3.14.10
+      - name: Install toolchain, mobile CLI, and renderer dependencies
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
+          rustup target add x86_64-linux-android
+          cargo install tauri-cli --version 2.12.5 --locked
+          npm ci --ignore-scripts
+      - name: Run Android API-level cases
+        run: bash ci/run-android.sh
+      - name: Upload Android emulator evidence
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: shell-spikes-${{ inputs.frozen_sha }}-android-api-${{ matrix.api }}-all-cases
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: warn
+
+  collect:
+    name: collect
+    needs: [public-static, mac-desktop, win-desktop, win-client, linux-gui, ios-colour, android]
+    if: always() && github.ref == 'refs/heads/shell-spikes/integration-1118'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          ref: ${{ inputs.frozen_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Guard dispatch ref and frozen SHA
+        id: dispatch-guard
+        run: |
+          test "$GITHUB_REF" = "refs/heads/shell-spikes/integration-1118"
+          test "$GITHUB_REF_TYPE" = "branch"
+          test "$(git rev-parse HEAD)" = "$FROZEN_SHA"
+      - run: python3 ci/prepare-evidence.py
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: 3.14.10
+      - name: Install media evidence validator
+        run: |
+          sudo apt-get update
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends ffmpeg
+      - name: Download all one-wave evidence
+        if: always()
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3
+        with:
+          pattern: shell-spikes-${{ inputs.frozen_sha }}-*
+          path: collected/
+          merge-multiple: false
+      - name: Produce result matrix and hashes
+        if: always() && steps.dispatch-guard.outcome == 'success'
+        run: python ci/collect.py --input collected --output evidence/collection --expected-sha "$FROZEN_SHA"
+      - name: Upload collection summary
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: shell-spikes-${{ inputs.frozen_sha }}-collect-all-cases
+          path: evidence/
+          retention-days: 14
+          if-no-files-found: warn

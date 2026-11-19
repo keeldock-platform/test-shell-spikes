@@ -1,0 +1,28 @@
+[package]
+name = "shell-spike-mobile"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+build = "build.rs"
+
+[lib]
+name = "shell_spike_mobile_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "shell-spike-mobile"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+tauri.workspace = true
+serde = { workspace = true, optional = true }
+serde_json.workspace = true
+
+[features]
+default = []
+custom-protocol = ["tauri/custom-protocol"]
+spike-s10 = []
+spike-s11 = ["dep:serde"]

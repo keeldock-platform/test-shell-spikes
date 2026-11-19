@@ -1,0 +1,20 @@
+{
+  "name": "test-shell-spikes",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Synthetic cross-platform desktop shell test fixtures.",
+  "packageManager": "npm@11.6.2",
+  "engines": {
+    "node": "24.11.1",
+    "npm": "11.6.2"
+  },
+  "scripts": {
+    "build:renderer": "node ci/build-renderer.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.12.4"
+  },
+  "devDependencies": {
+    "ajv": "8.17.1"
+  }
+}

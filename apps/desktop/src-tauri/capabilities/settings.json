@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "settings",
+  "description": "S08 Settings window permissions for the macOS-only settings label.",
+  "windows": ["settings"],
+  "platforms": ["macOS"],
+  "permissions": [
+    "allow-selected-spike",
+    "allow-selected-case",
+    "allow-record-renderer-event",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "s08-settings:allow-s08-settings",
+    "s08-settings:deny-s08-sentinels",
+    "dialog:deny-open",
+    "dialog:deny-save",
+    "dialog:deny-message"
+  ]
+}

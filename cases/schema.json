@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:shell-spikes:case-schema:v1",
+  "title": "Synthetic shell spike case file",
+  "type": "object",
+  "required": ["schemaVersion", "spike", "title", "cases"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "spike": {
+      "enum": [
+        "s01", "s02", "s03", "s08", "s10", "s11",
+        "SHELL-SPIKE-01", "SHELL-SPIKE-02", "SHELL-SPIKE-03",
+        "SHELL-SPIKE-08", "SHELL-SPIKE-10", "SHELL-SPIKE-11"
+      ]
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "platform": { "type": ["string", "array", "object"] },
+    "session": { "type": ["string", "array", "object"] },
+    "window": { "type": "object" },
+    "geometry": { "type": "object" },
+    "capture": { "type": "object" },
+    "setup": { "type": ["string", "array", "object"] },
+    "actions": { "type": "array", "items": { "oneOf": [{ "type": "string" }, { "type": "object" }] } },
+    "steps": { "type": "array", "items": { "oneOf": [{ "type": "string" }, { "type": "object" }] } },
+    "assertions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/assertion" }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "assertion": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "object",
+          "required": ["id", "expected"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "requirement": { "type": "string" },
+            "expected": {},
+            "evidence": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "case": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "platform": { "type": ["string", "array", "object"] },
+        "session": { "type": ["string", "array", "object"] },
+        "setup": { "type": ["string", "array", "object"] },
+        "actions": { "type": "array", "items": { "oneOf": [{ "type": "string" }, { "type": "object" }] } },
+        "steps": { "type": "array", "items": { "oneOf": [{ "type": "string" }, { "type": "object" }] } },
+        "assertions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/assertion" }
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

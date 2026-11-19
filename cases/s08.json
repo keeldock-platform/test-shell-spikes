@@ -1,0 +1,189 @@
+{
+  "schemaVersion": 1,
+  "spike": "s08",
+  "title": "macOS Settings window and parented step-up sheet",
+  "cases": [
+    {
+      "id": "S08-MAC-01-entry-instance",
+      "platform": "macOS",
+      "session": "macos-15-hosted-desktop",
+      "setup": ["Start the S08 feature with the main window visible; confirm native Accessibility preflight succeeds without prompting."],
+      "actions": [
+        "Record the initial main window identifier and geometry.",
+        "Send native Command+Comma from main.",
+        "Record the Settings window identifier, title, label mapping, logical geometry, and active-window identity.",
+        "Send Command+Comma again and verify the same Settings instance becomes key."
+      ],
+      "assertions": [
+        {
+          "id": "S08-A01-shortcut-opens-lazy-window",
+          "requirement": "S4-14",
+          "expected": "Native Command+Comma input from main lazily creates one window labelled settings, titled Settings, at 1040x660 logical points.",
+          "evidence": ["events.jsonl#S08-A01", "events.jsonl#native-content-geometry", "environment.json", "screens/s08-s4-14.png", "video/desktop.mp4", "recorder/accessibility-tree.jsonl"]
+        },
+        {
+          "id": "S08-A02-repeat-shortcut-focuses-instance",
+          "requirement": "Repeated native entry focuses the existing instance.",
+          "expected": "A second Command+Comma leaves exactly one Settings window and focuses the same native window identifier.",
+          "evidence": ["events.jsonl#S08-A02", "screens/s08-repeat-focus.png", "video/desktop.mp4", "recorder/accessibility-tree.jsonl"]
+        }
+      ]
+    },
+    {
+      "id": "S08-MAC-02-tool-settings-entry",
+      "platform": "macOS",
+      "session": "macos-15-hosted-desktop",
+      "setup": ["Start on main with no Settings window open."],
+      "actions": [
+        "Send native Option+Command+Comma.",
+        "Inspect the main accessibility tree and on-screen controls.",
+        "Inspect native windows and active-window identity."
+      ],
+      "assertions": [
+        {
+          "id": "S08-A03-option-command-comma-stays-in-main",
+          "requirement": "Option+Command+Comma preserves the main-window mock tool settings entry.",
+          "expected": "The mock tool settings view opens in main and no separate Settings window is created or focused.",
+          "evidence": ["events.jsonl#S08-A03", "screens/s08-tool-settings-main.png", "video/desktop.mp4", "recorder/accessibility-tree.jsonl"]
+        }
+      ]
+    },
+    {
+      "id": "S08-MAC-03-parented-sheet-and-inactive-main",
+      "platform": "macOS",
+      "session": "macos-15-hosted-desktop",
+      "setup": ["Open Settings from main and record both native window identifiers."],
+      "actions": [
+        "Select Security and capture pose S4-16 with Settings key.",
+        "Request step-up and inspect the native accessibility sheet relationship and active window.",
+        "With Settings key, capture main visibility, inactive state, and the whole desktop for any scrim.",
+        "While the sheet is visible, send a native click to the Settings Hide control and verify Settings remains visible.",
+        "While the sheet is visible, send a native click to the main action counter and read it back.",
+        "Record both native window identifiers and the main counter result."
+      ],
+      "assertions": [
+        {
+          "id": "S08-A04-security-pose",
+          "requirement": "S4-16",
+          "expected": "The Settings Security pose is visible at S4-16 and Settings is the active native window.",
+          "evidence": ["events.jsonl#S08-A04", "screens/s08-s4-16.png", "video/desktop.mp4", "recorder/accessibility-tree.jsonl"]
+        },
+        {
+          "id": "S08-A05-step-up-is-appkit-sheet",
+          "requirement": "S4-17",
+          "expected": "The step-up surface is exposed as one native accessibility sheet attached to Settings, not as an application-modal dialog or HTML overlay.",
+          "evidence": ["events.jsonl#S08-A05", "screens/s08-s4-17.png", "video/desktop.mp4", "recorder/accessibility-tree.jsonl"]
+        },
+        {
+          "id": "S08-A06-sheet-blocks-settings-only",
+          "requirement": "The sheet blocks input to its parent window only.",
+          "expected": "A native click on the Settings control has no effect while the sheet is open; a native click on a visible main-window control succeeds and increments its counter.",
+          "evidence": ["events.jsonl#S08-A06", "screens/s08-sheet-scope.png", "video/desktop.mp4", "recorder/accessibility-tree.jsonl"]
+        },
+        {
+          "id": "S08-A07-main-draws-inactive-without-scrim",
+          "requirement": "S1-12",
+          "expected": "With Settings key, main remains visible and independently usable, exposes the inactive-window state, and has no full-window scrim or overlay.",
+          "evidence": ["events.jsonl#S08-A07", "screens/s08-s1-12.png", "video/desktop.mp4", "recorder/accessibility-tree.jsonl"]
+        }
+      ]
+    },
+    {
+      "id": "S08-MAC-04-window-state-and-view-restore",
+      "platform": "macOS",
+      "session": "macos-15-hosted-desktop",
+      "setup": ["Open Settings and record its native identifier and bounds."],
+      "actions": [
+        "Select Team and use native wheel input to scroll its synthetic rows to a nonzero offset.",
+        "Send Command+W and verify Settings hides while main remains visible.",
+        "Reopen with native Command+Comma; verify the same window identifier, Team page, and saved scroll marker.",
+        "Move and resize Settings through native accessibility window attributes; record bounds.",
+        "Invoke the explicit test destroy control in main, then reopen Settings.",
+        "Record restored bounds and active native identifier; confirm visibility was not restored automatically."
+      ],
+      "assertions": [
+        {
+          "id": "S08-A08-hide-reopen-restores-page-and-scroll",
+          "requirement": "S4-18",
+          "expected": "After selecting Team and scrolling synthetic content, Command+W hides Settings; reopening restores the same window instance, Team page, and nonzero saved scroll marker.",
+          "evidence": ["events.jsonl#S08-A08", "screens/s08-s4-18.png", "screens/s08-hide-reopen.png", "video/desktop.mp4", "recorder/accessibility-tree.jsonl"]
+        },
+        {
+          "id": "S08-A09-destroy-recreate-restores-plugin-geometry",
+          "requirement": "tauri-plugin-window-state 2.5.0 restores the settings label geometry.",
+          "expected": "After moving and resizing Settings, the host saves state through tauri-plugin-window-state 2.5.0; destroying and recreating the settings label restores measured position and size. VISIBLE is excluded from the plugin flags.",
+          "evidence": ["environment.json", "events.jsonl#S08-A09", "screens/s08-geometry-restored.png", "video/desktop.mp4", "source/apps/desktop/src-tauri/src/spikes/s08_settings.rs"]
+        },
+        {
+          "id": "S08-A10-destroy-recreate-restores-team-view",
+          "requirement": "S4-18",
+          "expected": "The recreated Settings window displays the Team pose at S4-18, restores the same nonzero page/scroll marker, and exposes its active native window identifier.",
+          "evidence": ["events.jsonl#S08-A10", "screens/s08-s4-18-restored.png", "video/desktop.mp4", "recorder/accessibility-tree.jsonl"]
+        }
+      ]
+    },
+    {
+      "id": "S08-MAC-05-mock-lock-destroys-settings",
+      "platform": "macOS",
+      "session": "macos-15-hosted-desktop",
+      "setup": ["Open Settings and keep main available."],
+      "actions": [
+        "Invoke the synthetic mock lock control in main.",
+        "Verify the Settings window is destroyed and a subsequent Command+Comma does not recreate it.",
+        "Invoke mock unlock in main and then Command+Comma."
+      ],
+      "assertions": [
+        {
+          "id": "S08-A11-synthetic-lock-destroys-window",
+          "requirement": "A synthetic vault-lock signal destroys Settings; this is not a real-vault security claim.",
+          "expected": "The explicit mock lock signal destroys Settings; shortcut entry while mock-locked does not recreate it; after mock unlock, Settings opens.",
+          "evidence": ["events.jsonl#S08-A11", "screens/s08-mock-lock.png", "video/desktop.mp4", "recorder/accessibility-tree.jsonl"]
+        }
+      ]
+    },
+    {
+      "id": "S08-MAC-06-capability-and-host-allowlist",
+      "platform": "macOS",
+      "session": "macos-15-hosted-desktop",
+      "setup": ["Open Settings; retain the actual settings webview as the invoke source."],
+      "actions": [
+        "Run the allowed mock command checks from Settings.",
+        "Open and cancel each parented host-run licence, import-data, and export-data picker; record native tree and parent window.",
+        "Run every deny sentinel and direct dialog plugin invocation from Settings; distinguish policy denial from unknown-command or transport errors.",
+        "Collect the CI ACL manifest, the S08 Rust authorization test result, and the resolved capability assignment list."
+      ],
+      "assertions": [
+        {
+          "id": "S08-A12-allowed-settings-operations",
+          "requirement": "Settings capability exposes only its documented synthetic settings command set.",
+          "expected": "Settings webview calls succeed for mock settings read/write, schema/search, shortcuts, step-up, host-run licence/data pickers, mock vault actions, project/team settings, view state, and hide.",
+          "evidence": ["events.jsonl#S08-A12", "screens/s08-allowed-commands.png", "video/desktop.mp4", "source/apps/desktop/src-tauri/permissions/s08.toml", "recorder/accessibility-tree.jsonl"]
+        },
+        {
+          "id": "S08-A13-settings-denials-from-webview",
+          "requirement": "Settings cannot invoke tool, pane, tab/project-open, MCP, marketplace, or direct file/dialog capabilities.",
+          "expected": "Invokes from the actual Settings webview for every sentinel and the direct dialog command produce policy-denied results; no denial probe resolves successfully, and direct file access has no grant.",
+          "evidence": ["events.jsonl#S08-A13", "screens/s08-denial-probes.png", "source/apps/desktop/src-tauri/capabilities/settings.json", "source/apps/desktop/src-tauri/permissions/s08.toml", "recorder/s08-acl-manifest.json"]
+        },
+        {
+          "id": "S08-A14-rust-host-checks-also-deny",
+          "requirement": "The Rust host allow-list independently rejects every sentinel and main-only command for the settings label.",
+          "expected": "Rust authorization tests reject every denied sentinel and main-only command for Settings, and reject Settings-only commands from main; successful mock IPC alone is not considered proof of production capability enforcement.",
+          "evidence": ["assertions.json#S08-A14", "source/apps/desktop/src-tauri/src/spikes/s08_settings.rs", "recorder/s08-rust-tests.log"]
+        },
+        {
+          "id": "S08-A15-no-capability-overlap",
+          "requirement": "Only the settings capability targets the settings label on macOS.",
+          "expected": "The coordinator capability registry assigns no main, wildcard, or other capability to Settings, and the Settings capability grants no filesystem or direct dialog plugin command.",
+          "evidence": ["assertions.json#S08-A15", "source/apps/desktop/src-tauri/capabilities/settings.json", "source/apps/desktop/src-tauri/tauri.conf.json", "recorder/s08-acl-manifest.json"]
+        }
+      ]
+    }
+  ],
+  "fallback": "If any binding assertion fails or is UNVERIFIED, use the existing Windows/Linux modal on macOS while keeping Settings page content and step-up host contract; remove the distinct native-class dependency from the selected route.",
+  "verdictPolicy": {
+    "pass": "All binding assertions have resolved evidence from the declared native, recorder, capability, or CI sources.",
+    "fail": "A binding assertion is disproved; select the stated fallback.",
+    "unverified": "Runner, permission preflight, native tree, capture, or assertion pointer cannot resolve an assertion; select the stated fallback."
+  }
+}

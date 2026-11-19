@@ -1,0 +1,477 @@
+{
+  "schemaVersion": 1,
+  "spike": "s03",
+  "title": "GNOME compositor window menu",
+  "cases": [
+    {
+      "id": "S03-UBUNTU-24.04-X11",
+      "platform": "linux",
+      "distribution": "ubuntu-24.04",
+      "session": "x11",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "GNOME Shell/Mutter",
+            "session D-Bus",
+            "AT-SPI",
+            "GNOME portal backend",
+            "whole-compositor capture",
+            "100-percent display scale"
+          ]
+        },
+        {
+          "action": "discover",
+          "target": "Empty header area",
+          "via": "AT-SPI"
+        }
+      ],
+      "actions": [
+        "Secondary click target Empty header area using XTest.",
+        "Capture whole compositor including Mutter popup.",
+        "Dismiss with XTest Escape.",
+        "Secondary click target Minimize window using XTest.",
+        "Secondary click target Overview tab using XTest.",
+        "Maximize target Maximize for menu state check using XTest.",
+        "Secondary click target Empty header area using XTest.",
+        "Capture whole compositor including Mutter popup."
+      ],
+      "assertions": [
+        {
+          "id": "S03-UBUNTU-24.04-X11-S1-16",
+          "requirement": "A real secondary-click on empty GNOME header space opens the Mutter window menu.",
+          "expected": "A visible native compositor window menu is present after the original GDK button event.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S03-UBUNTU-24.04-X11-O-21",
+          "requirement": "The GNOME window menu opens at the pointer.",
+          "expected": "The captured pointer coordinate lies within the native popup bounds, with the CSS-to-GDK and desktop-to-popup mapping recorded.",
+          "evidence": [
+            "geometry-json",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S03-UBUNTU-24.04-X11-RESTORED-MODEL",
+          "requirement": "The restored-window menu model exposes the required GNOME system menu actions.",
+          "expected": "Minimize, Maximize, Move, Resize, Always on Top, Always on Visible Workspace, and Close are represented.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video"
+          ]
+        },
+        {
+          "id": "S03-UBUNTU-24.04-X11-MAXIMIZED-RESTORE",
+          "requirement": "The maximized-window menu model exposes Restore instead of Maximize.",
+          "expected": "Restore is present and Maximize is absent after the test window is maximized.",
+          "evidence": [
+            "native-tree",
+            "geometry-json",
+            "screen",
+            "video"
+          ]
+        },
+        {
+          "id": "S03-UBUNTU-24.04-X11-CONTROL-NEGATIVE",
+          "requirement": "A secondary-click on a window control does not open the compositor window menu.",
+          "expected": "No Mutter window menu appears after the control secondary-click.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S03-UBUNTU-24.04-X11-TAB-NEGATIVE",
+          "requirement": "A secondary-click on a tab does not open the compositor window menu.",
+          "expected": "No Mutter window menu appears after the tab secondary-click.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S03-UBUNTU-24.04-WAYLAND",
+      "platform": "linux",
+      "distribution": "ubuntu-24.04",
+      "session": "wayland",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "GNOME Shell/Mutter",
+            "session D-Bus",
+            "AT-SPI",
+            "GNOME portal backend",
+            "whole-compositor/PipeWire capture",
+            "libei or runner virtual input",
+            "100-percent display scale"
+          ]
+        },
+        {
+          "action": "discover",
+          "target": "Empty header area",
+          "via": "AT-SPI"
+        }
+      ],
+      "actions": [
+        "Secondary click target Empty header area using runner virtual input/libei.",
+        "Capture whole compositor including Mutter popup.",
+        "Dismiss with runner virtual input Escape.",
+        "Secondary click target Minimize window using runner virtual input/libei.",
+        "Secondary click target Overview tab using runner virtual input/libei.",
+        "Maximize target Maximize for menu state check using runner virtual input/libei.",
+        "Secondary click target Empty header area using runner virtual input/libei.",
+        "Capture whole compositor including Mutter popup."
+      ],
+      "assertions": [
+        {
+          "id": "S03-UBUNTU-24.04-WAYLAND-S1-16",
+          "requirement": "A real secondary-click on empty GNOME header space opens the Mutter window menu.",
+          "expected": "A visible native compositor window menu is present after GTK/GDK uses the owning surface and original Wayland input serial.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S03-UBUNTU-24.04-WAYLAND-O-21",
+          "requirement": "The GNOME window menu opens at the pointer.",
+          "expected": "The captured pointer coordinate lies within the native popup bounds, with the CSS-to-GDK and desktop-to-popup mapping recorded.",
+          "evidence": [
+            "geometry-json",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S03-UBUNTU-24.04-WAYLAND-RESTORED-MODEL",
+          "requirement": "The restored-window menu model exposes the required GNOME system menu actions.",
+          "expected": "Minimize, Maximize, Move, Resize, Always on Top, Always on Visible Workspace, and Close are represented.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video"
+          ]
+        },
+        {
+          "id": "S03-UBUNTU-24.04-WAYLAND-MAXIMIZED-RESTORE",
+          "requirement": "The maximized-window menu model exposes Restore instead of Maximize.",
+          "expected": "Restore is present and Maximize is absent after the test window is maximized.",
+          "evidence": [
+            "native-tree",
+            "geometry-json",
+            "screen",
+            "video"
+          ]
+        },
+        {
+          "id": "S03-UBUNTU-24.04-WAYLAND-CONTROL-NEGATIVE",
+          "requirement": "A secondary-click on a window control does not open the compositor window menu.",
+          "expected": "No Mutter window menu appears after the control secondary-click.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S03-UBUNTU-24.04-WAYLAND-TAB-NEGATIVE",
+          "requirement": "A secondary-click on a tab does not open the compositor window menu.",
+          "expected": "No Mutter window menu appears after the tab secondary-click.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S03-FEDORA-CURRENT-X11",
+      "platform": "linux",
+      "distribution": "fedora-current",
+      "session": "x11",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "GNOME Shell/Mutter",
+            "session D-Bus",
+            "AT-SPI",
+            "GNOME portal backend",
+            "whole-compositor capture",
+            "XTest input",
+            "record /etc/os-release",
+            "100-percent display scale"
+          ]
+        },
+        {
+          "action": "discover",
+          "target": "Empty header area",
+          "via": "AT-SPI"
+        }
+      ],
+      "actions": [
+        "Secondary click target Empty header area using XTest.",
+        "Capture whole compositor including Mutter popup.",
+        "Dismiss with XTest Escape.",
+        "Secondary click target Minimize window using XTest.",
+        "Secondary click target Overview tab using XTest.",
+        "Maximize target Maximize for menu state check using XTest.",
+        "Secondary click target Empty header area using XTest.",
+        "Capture whole compositor including Mutter popup."
+      ],
+      "assertions": [
+        {
+          "id": "S03-FEDORA-CURRENT-X11-S1-16",
+          "requirement": "A real secondary-click on empty GNOME header space opens the Mutter window menu.",
+          "expected": "A visible native compositor window menu is present after the original GDK button event.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S03-FEDORA-CURRENT-X11-O-21",
+          "requirement": "The GNOME window menu opens at the pointer.",
+          "expected": "The captured pointer coordinate lies within the native popup bounds, with the CSS-to-GDK and desktop-to-popup mapping recorded.",
+          "evidence": [
+            "geometry-json",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S03-FEDORA-CURRENT-X11-RESTORED-MODEL",
+          "requirement": "The restored-window menu model exposes the required GNOME system menu actions.",
+          "expected": "Minimize, Maximize, Move, Resize, Always on Top, Always on Visible Workspace, and Close are represented.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video"
+          ]
+        },
+        {
+          "id": "S03-FEDORA-CURRENT-X11-MAXIMIZED-RESTORE",
+          "requirement": "The maximized-window menu model exposes Restore instead of Maximize.",
+          "expected": "Restore is present and Maximize is absent after the test window is maximized.",
+          "evidence": [
+            "native-tree",
+            "geometry-json",
+            "screen",
+            "video"
+          ]
+        },
+        {
+          "id": "S03-FEDORA-CURRENT-X11-CONTROL-NEGATIVE",
+          "requirement": "A secondary-click on a window control does not open the compositor window menu.",
+          "expected": "No Mutter window menu appears after the control secondary-click.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S03-FEDORA-CURRENT-X11-TAB-NEGATIVE",
+          "requirement": "A secondary-click on a tab does not open the compositor window menu.",
+          "expected": "No Mutter window menu appears after the tab secondary-click.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S03-FEDORA-CURRENT-WAYLAND",
+      "platform": "linux",
+      "distribution": "fedora-current",
+      "session": "wayland",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "GNOME Shell/Mutter",
+            "session D-Bus",
+            "AT-SPI",
+            "GNOME portal backend",
+            "whole-compositor/PipeWire capture",
+            "libei or runner virtual input",
+            "record /etc/os-release",
+            "100-percent display scale"
+          ]
+        },
+        {
+          "action": "discover",
+          "target": "Empty header area",
+          "via": "AT-SPI"
+        }
+      ],
+      "actions": [
+        "Secondary click target Empty header area using runner virtual input/libei.",
+        "Capture whole compositor including Mutter popup.",
+        "Dismiss with runner virtual input Escape.",
+        "Secondary click target Minimize window using runner virtual input/libei.",
+        "Secondary click target Overview tab using runner virtual input/libei.",
+        "Maximize target Maximize for menu state check using runner virtual input/libei.",
+        "Secondary click target Empty header area using runner virtual input/libei.",
+        "Capture whole compositor including Mutter popup."
+      ],
+      "assertions": [
+        {
+          "id": "S03-FEDORA-CURRENT-WAYLAND-S1-16",
+          "requirement": "A real secondary-click on empty GNOME header space opens the Mutter window menu.",
+          "expected": "A visible native compositor window menu is present after GTK/GDK uses the owning surface and original Wayland input serial.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S03-FEDORA-CURRENT-WAYLAND-O-21",
+          "requirement": "The GNOME window menu opens at the pointer.",
+          "expected": "The captured pointer coordinate lies within the native popup bounds, with the CSS-to-GDK and desktop-to-popup mapping recorded.",
+          "evidence": [
+            "geometry-json",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S03-FEDORA-CURRENT-WAYLAND-RESTORED-MODEL",
+          "requirement": "The restored-window menu model exposes the required GNOME system menu actions.",
+          "expected": "Minimize, Maximize, Move, Resize, Always on Top, Always on Visible Workspace, and Close are represented.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video"
+          ]
+        },
+        {
+          "id": "S03-FEDORA-CURRENT-WAYLAND-MAXIMIZED-RESTORE",
+          "requirement": "The maximized-window menu model exposes Restore instead of Maximize.",
+          "expected": "Restore is present and Maximize is absent after the test window is maximized.",
+          "evidence": [
+            "native-tree",
+            "geometry-json",
+            "screen",
+            "video"
+          ]
+        },
+        {
+          "id": "S03-FEDORA-CURRENT-WAYLAND-CONTROL-NEGATIVE",
+          "requirement": "A secondary-click on a window control does not open the compositor window menu.",
+          "expected": "No Mutter window menu appears after the control secondary-click.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S03-FEDORA-CURRENT-WAYLAND-TAB-NEGATIVE",
+          "requirement": "A secondary-click on a tab does not open the compositor window menu.",
+          "expected": "No Mutter window menu appears after the tab secondary-click.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S03-UBUNTU-24.04-WAYLAND-KIT-FALLBACK",
+      "platform": "linux",
+      "distribution": "ubuntu-24.04",
+      "session": "wayland",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "GNOME Shell/Mutter",
+            "AT-SPI",
+            "whole-compositor/PipeWire capture",
+            "libei or runner virtual input",
+            "100-percent display scale"
+          ]
+        },
+        {
+          "action": "discover",
+          "target": "Select kit fallback mode",
+          "via": "AT-SPI"
+        }
+      ],
+      "actions": [
+        "Click target Select kit fallback mode using runner virtual input/libei.",
+        "Secondary click target Empty header area using runner virtual input/libei.",
+        "Capture whole compositor including kit fallback."
+      ],
+      "assertions": [
+        {
+          "id": "S03-UBUNTU-24.04-WAYLAND-KIT-FALLBACK-VISIBLE",
+          "requirement": "The kit fallback menu appears at the pointer when selected.",
+          "expected": "The app's accessible kit menu is visible and its bounds contain the pointer coordinate.",
+          "evidence": [
+            "native-tree",
+            "geometry-json",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S03-UBUNTU-24.04-WAYLAND-KIT-FALLBACK-SAME-ITEMS",
+          "requirement": "The kit fallback presents the same seven GNOME menu items.",
+          "expected": "Minimize, Maximize, Move, Resize, Always on Top, Always on Visible Workspace, and Close are represented.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video"
+          ]
+        },
+        {
+          "id": "S03-UBUNTU-24.04-WAYLAND-KIT-FALLBACK-UNSUPPORTED-RESIZE",
+          "requirement": "The kit fallback marks unsupported Resize honestly.",
+          "expected": "Resize is visible, disabled, and accompanied by an explicit test-shell limitation.",
+          "evidence": [
+            "native-tree",
+            "screen"
+          ]
+        }
+      ]
+    }
+  ]
+}

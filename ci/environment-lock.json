@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 2,
+  "freezeStatus": "dependency-versions-pinned; host-managed-runtime-values-observed-per-cell; unsupported-linux-profiles-explicit",
+  "runtimePolicy": {
+    "passRequiresExactRuntimeMatch": true,
+    "exactRuntimeVersionsByCell": {},
+    "unmatchedOrUnpinnedVerdict": "UNVERIFIED",
+    "reason": "Empty exactRuntimeVersionsByCell explicitly selects authorized first-CI-run discovery. No runtime-dependent PASS until the coordinator freezes the observed versions and checksums.",
+    "mode": "first-ci-run-discovery",
+    "discoveryAuthorization": {
+      "date": "2026-11-19",
+      "scope": "first CI run only; GITHUB_RUN_NUMBER=1 and GITHUB_RUN_ATTEMPT=1",
+      "installation": "official stable channels for other platforms; Android uses bundled WebView from official sdkmanager image (decision C, 2026-11-19)",
+      "evidence": "recorder/runtime-discovery.json: exact resolved versions, installed payload SHA-256, install logs and coordinator candidate pins",
+      "freezeOwner": "coordinator; set mode=locked and populate exactRuntimeVersionsByCell after this run"
+    }
+  },
+  "toolchains": {
+    "rust": {
+      "version": "1.99.1",
+      "source": "https://github.com/rust-lang/rust/releases/tag/1.99.1"
+    },
+    "node": {
+      "version": "24.11.1",
+      "source": "https://nodejs.org/en/download/archive/v24.11.1"
+    },
+    "npm": {
+      "version": "11.6.2",
+      "source": "https://nodejs.org/en/download/archive/v24.11.1"
+    },
+    "python": {
+      "version": "3.14.10",
+      "source": "https://www.python.org/downloads/release/python-31410/"
+    },
+    "tauri": {
+      "version": "2.12.6",
+      "source": "https://github.com/tauri-apps/tauri/releases/tag/tauri-v2.12.6"
+    },
+    "tauriBuild": {
+      "version": "2.7.5",
+      "source": "https://docs.rs/crate/tauri-build/2.7.5"
+    },
+    "tauriCli": {
+      "version": "2.12.5",
+      "source": "https://docs.rs/crate/tauri-cli/2.12.5"
+    },
+    "windowStatePlugin": {
+      "version": "2.5.0",
+      "source": "https://docs.rs/crate/tauri-plugin-window-state/2.5.0"
+    },
+    "dialogPlugin": {
+      "version": "2.8.4",
+      "source": "https://crates.io/crates/tauri-plugin-dialog/2.8.4"
+    },
+    "caseSchema": {
+      "version": "1",
+      "source": "cases/schema.json"
+    }
+  },
+  "javascriptDependencies": {
+    "@tauri-apps/api": "2.12.4",
+    "ajv": "8.17.1"
+  },
+  "actions": {
+    "checkout": {
+      "version": "v6.0.1",
+      "sha": "8e8c483db84b4bee98b60c0593521ed34d9990e8"
+    },
+    "uploadArtifact": {
+      "version": "v7.0.0",
+      "sha": "bbbca2ddaa5d8feaa63e36b76fdaad77386f024f"
+    },
+    "downloadArtifact": {
+      "version": "v8.0.0",
+      "sha": "70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3"
+    },
+    "setupNode": {
+      "version": "v7.1.0",
+      "sha": "949feb2413d6458794dcd2491c4babbbce0c15c1"
+    },
+    "setupPython": {
+      "version": "v7.1.0",
+      "sha": "6d4fd22b20465ccc0f7354476588e8df7c9ca0e0"
+    }
+  },
+  "runnerImages": {
+    "ubuntu-24.04": {
+      "label": "ubuntu-24.04",
+      "identitySource": "ImageOS and ImageVersion are captured from the runner at job start"
+    },
+    "macos-15": {
+      "label": "macos-15",
+      "identitySource": "ImageOS, ImageVersion, and xcodebuild -version are captured at job start"
+    },
+    "windows-2025": {
+      "label": "windows-2025",
+      "identitySource": "ImageOS, ImageVersion, and Windows build are captured at job start"
+    },
+    "windows-11-arm": {
+      "label": "windows-11-arm",
+      "identitySource": "ImageOS, ImageVersion, Windows build, and process architecture are captured at job start"
+    },
+    "macos-26": {
+      "label": "macos-26",
+      "identitySource": "ImageOS, ImageVersion, and xcodebuild -version are captured at job start"
+    }
+  },
+  "linuxProfiles": [
+    {
+      "distribution": "Ubuntu 24.04",
+      "session": "X11",
+      "provisioning": "workflow-installed GNOME/Mutter on the ubuntu-24.04 host",
+      "availability": "provisioned"
+    },
+    {
+      "distribution": "Ubuntu 24.04",
+      "session": "Wayland",
+      "provisioning": "workflow-installed nested GNOME/Mutter session on the ubuntu-24.04 host",
+      "availability": "provisioned"
+    },
+    {
+      "distribution": "Ubuntu 26.04",
+      "session": "X11",
+      "availability": "not-provisioned",
+      "fallbacks": {
+        "s10": "hex field only"
+      }
+    },
+    {
+      "distribution": "Ubuntu 26.04",
+      "session": "Wayland",
+      "availability": "not-provisioned",
+      "fallbacks": {
+        "s10": "hex field only",
+        "s11": "System hidden; stored System resolves to brand"
+      }
+    },
+    {
+      "distribution": "Fedora current",
+      "session": "X11",
+      "availability": "not-provisioned",
+      "fallbacks": {
+        "s03": "same-item kit menu",
+        "s10": "hex field only"
+      }
+    },
+    {
+      "distribution": "Fedora current",
+      "session": "Wayland",
+      "availability": "not-provisioned",
+      "fallbacks": {
+        "s03": "same-item kit menu",
+        "s10": "hex field only",
+        "s11": "System hidden; stored System resolves to brand"
+      }
+    }
+  ],
+  "linuxHostPackages": {
+    "ubuntu-24.04": {
+      "gnomeScreenshot": "41.0-2build2"
+    }
+  },
+  "waylandInput": {
+    "package": "ydotool",
+    "versionSource": "dpkg-query version captured in the Ubuntu 24.04 Wayland session diagnostics"
+  },
+  "webviews": {
+    "windowsWebView2Runtime": {
+      "versionSource": "Windows WebView2 Runtime registry entry; exact version written to environment.json"
+    },
+    "linuxWebKitGTK": {
+      "versionSource": "pkg-config webkit2gtk-4.1 inside the active GNOME session; exact version written to environment.json"
+    },
+    "macOSWKWebView": {
+      "versionSource": "installed WebKit framework metadata; exact build written to environment.json"
+    },
+    "iOSWKWebView": {
+      "versionSource": "selected iOS simulator runtime and installed WebKit framework metadata; exact build written to environment.json"
+    },
+    "androidWebView": {
+      "versionSource": "adb dumpsys webviewupdate for the active API-level emulator; exact package version written to environment.json",
+      "source": "official-sdkmanager-system-image-bundled",
+      "latestStableStatus": "UNVERIFIED",
+      "latestStableReason": "Bundled, not latest; no restricted archive installation."
+    }
+  },
+  "apple": {
+    "xcodeMacDesktop": {
+      "versionSource": "xcodebuild -version output captured in environment.json"
+    },
+    "xcodeIos": {
+      "versionSource": "xcodebuild -version output captured in environment.json"
+    },
+    "iosSimulatorRuntime": {
+      "versionSource": "xcrun simctl runtime for each booted simulator; exact version written to environment.json"
+    },
+    "simulatorDevices": {
+      "iphone": {
+        "name": "iPhone 17",
+        "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-0"
+      },
+      "ipad": {
+        "name": "iPad (A16)",
+        "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-0"
+      }
+    }
+  },
+  "android": {
+    "deviceProfile": "pixel_6",
+    "sdkTools": {
+      "versionSource": "sdkmanager --version captured after selection"
+    },
+    "platformTools": {
+      "versionSource": "adb --version captured after selection"
+    },
+    "emulator": {
+      "versionSource": "emulator -version captured after selection"
+    },
+    "platform": {
+      "package": "platforms;android-35",
+      "revisionSource": "sdkmanager --list_installed output recorded after installation"
+    },
+    "buildTools": {
+      "package": "build-tools;35.0.0",
+      "revisionSource": "sdkmanager --list_installed output recorded after installation"
+    },
+    "ndk": {
+      "version": "27.2.12479018",
+      "package": "ndk;27.2.12479018"
+    },
+    "uiAutomator": {
+      "runnerModel": "androidx-instrumentation-apk",
+      "instrumentationRunner": "androidx.test.runner.AndroidJUnitRunner",
+      "instrumentationPackage": "org.example.shellspikes.mobile.test",
+      "androidxRunner": "1.7.0",
+      "androidxJunitExtension": "1.3.0",
+      "androidxUiAutomator": "2.4.0",
+      "junit": "4.13.2",
+      "gradleWrapper": "apps/test-shell-mobile/src-tauri/gen/android/gradle/wrapper/gradle-wrapper.properties",
+      "compileSdk": 35,
+      "buildTools": "35.0.0"
+    },
+    "systemImages": {
+      "30": {
+        "package": "system-images;android-30;google_apis;x86_64",
+        "revisionSource": "sdkmanager --list_installed output recorded after installation"
+      },
+      "31": {
+        "package": "system-images;android-31;google_apis;x86_64",
+        "revisionSource": "sdkmanager --list_installed output recorded after installation"
+      },
+      "35": {
+        "package": "system-images;android-35;google_apis;x86_64",
+        "revisionSource": "sdkmanager --list_installed output recorded after installation"
+      }
+    }
+  },
+  "recorders": {
+    "ffmpeg": {
+      "versionSource": "ffmpeg -version and executable SHA-256 captured per runner"
+    },
+    "macosCaptureDevice": {
+      "selectionSource": "AVFoundation screen-device enumeration captured before recording"
+    },
+    "adbScreenrecord": {
+      "versionSource": "adb --version captured with Android environment"
+    },
+    "simctl": {
+      "versionSource": "xcodebuild -version captured with simulator environment"
+    },
+    "gnomeScreencast": {
+      "versionSource": "Mutter version captured from the active GNOME session",
+      "fps": 60
+    }
+  },
+  "requiredCells": [
+    "mac-desktop",
+    "win-desktop",
+    "win-client",
+    "linux-ubuntu-24.04-x11",
+    "linux-ubuntu-24.04-wayland",
+    "linux-ubuntu-26.04-x11",
+    "linux-ubuntu-26.04-wayland",
+    "linux-fedora-current-x11",
+    "linux-fedora-current-wayland",
+    "ios-colour-iphone",
+    "ios-colour-ipad",
+    "android-api-30",
+    "android-api-31",
+    "android-api-35"
+  ]
+}

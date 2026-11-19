@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "mobile",
+  "description": "Minimal permissions for the synthetic mobile shell.",
+  "windows": ["main"],
+  "permissions": [
+    "allow-selected-spike",
+    "allow-selected-case",
+    "allow-record-renderer-event",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten"
+  ]
+}

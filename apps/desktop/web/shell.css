@@ -1,0 +1,49 @@
+:root {
+  color-scheme: light dark;
+  font: 15px/1.5 system-ui, sans-serif;
+  color: #18202b;
+  background: #f3f6fa;
+}
+
+* { box-sizing: border-box; }
+body { min-width: 360px; min-height: 100vh; margin: 0; }
+.shell-header {
+  min-height: 64px; padding: 10px 18px; display: flex; align-items: center;
+  justify-content: space-between; gap: 18px; background: #e7edf5; border-bottom: 1px solid #c8d2df;
+}
+.shell-brand { font-size: 14px; font-weight: 700; letter-spacing: .04em; }
+#spike-frame-marker {
+  min-width: 150px; padding: 4px 9px; border: 1px solid #8695a8; border-radius: 6px;
+  background: #fff; color: #17212e; font: 12px/1.4 ui-monospace, monospace; text-align: center;
+}
+#spike-root { min-height: calc(100vh - 106px); padding: clamp(18px, 5vw, 64px); }
+.shell-card {
+  width: min(760px, 100%); margin: 0 auto; padding: clamp(24px, 5vw, 48px);
+  border: 1px solid #ccd6e2; border-radius: 16px; background: #fff;
+  box-shadow: 0 12px 36px rgb(25 43 66 / 9%);
+}
+.eyebrow { margin: 0 0 8px; color: #4a617e; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+h1 { margin: 0 0 12px; font-size: clamp(24px, 4vw, 36px); line-height: 1.15; }
+p { max-width: 62ch; }
+#scenario-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.case-picker { display: grid; gap: 6px; max-width: 420px; margin-top: 20px; font-size: 13px; font-weight: 600; }
+.case-picker input {
+  min-height: 42px; padding: 8px 12px; border: 1px solid #9baabd; border-radius: 8px;
+  background: #fff; color: #18202b; font: inherit;
+}
+#scenario-list a, button {
+  display: inline-flex; align-items: center; min-height: 42px; padding: 8px 14px;
+  border: 1px solid #9baabd; border-radius: 8px; background: #f8fafc; color: inherit;
+  font: inherit; text-decoration: none; cursor: pointer;
+}
+#scenario-list a:hover, button:hover { background: #e9f0f8; }
+footer { min-height: 42px; padding: 10px 18px; color: #4f5d6e; font-size: 12px; text-align: center; }
+@media (prefers-color-scheme: dark) {
+  :root { color: #e8edf5; background: #111821; }
+  .shell-header { background: #1c2632; border-color: #38485b; }
+  #spike-frame-marker, .shell-card { background: #202c3a; color: #e8edf5; border-color: #4a5b70; }
+  .eyebrow, footer { color: #b0c1d5; }
+  .case-picker input { background: #182330; color: #e8edf5; border-color: #657b95; }
+  #scenario-list a, button { background: #263547; color: #e8edf5; border-color: #657b95; }
+  #scenario-list a:hover, button:hover { background: #32455c; }
+}

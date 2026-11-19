@@ -1,0 +1,68 @@
+[package]
+name = "shell-spike-desktop"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+build = "build.rs"
+
+[lib]
+name = "shell_spike_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "shell-spike-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+tauri.workspace = true
+serde = { workspace = true, optional = true }
+serde_json.workspace = true
+thiserror = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
+tauri-plugin-dialog = { workspace = true, optional = true }
+tauri-plugin-window-state = { workspace = true, optional = true }
+ashpd = { workspace = true, optional = true }
+futures-util = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { workspace = true, optional = true }
+objc2-app-kit = { workspace = true, optional = true }
+objc2-foundation = { workspace = true, optional = true }
+objc2-core-foundation = { workspace = true, optional = true }
+block2 = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { workspace = true, optional = true }
+webview2-com = { workspace = true, optional = true }
+
+[features]
+default = []
+custom-protocol = ["tauri/custom-protocol"]
+spike-s01 = ["dep:serde", "dep:objc2-app-kit", "dep:objc2-foundation"]
+spike-s02 = ["dep:serde", "dep:webview2-com"]
+spike-s03 = ["dep:serde", "dep:gtk"]
+spike-s08 = [
+  "dep:serde",
+  "dep:thiserror",
+  "dep:tauri-plugin-dialog",
+  "dep:tauri-plugin-window-state",
+]
+spike-s10 = []
+spike-s11 = [
+  "dep:serde",
+  "dep:tokio",
+  "dep:ashpd",
+  "dep:futures-util",
+  "dep:objc2",
+  "dep:objc2-app-kit",
+  "dep:objc2-foundation",
+  "dep:objc2-core-foundation",
+  "dep:block2",
+  "dep:windows",
+]

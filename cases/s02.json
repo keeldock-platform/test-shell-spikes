@@ -1,0 +1,1197 @@
+{
+  "schemaVersion": 1,
+  "spike": "s02",
+  "title": "Windows system menu for a frameless test window",
+  "sourceReferences": [
+    "native-pointer-menu-entry",
+    "native-keyboard-menu-entry",
+    "system-menu-item-states",
+    "window-command-behavior",
+    "client-window-arrangement-popup"
+  ],
+  "window": {
+    "decorations": false,
+    "resizable": true,
+    "title": "S02 System Menu Spike"
+  },
+  "menuItems": [
+    {
+      "id": "restore",
+      "label": "Restore",
+      "enabledWhen": "maximized-or-minimized"
+    },
+    {
+      "id": "move",
+      "label": "Move",
+      "enabledWhen": "normal"
+    },
+    {
+      "id": "size",
+      "label": "Size",
+      "enabledWhen": "normal-and-resizable"
+    },
+    {
+      "id": "minimize",
+      "label": "Minimize",
+      "enabledWhen": "not-minimized"
+    },
+    {
+      "id": "maximize",
+      "label": "Maximize",
+      "enabledWhen": "normal-and-resizable"
+    },
+    {
+      "id": "close",
+      "label": "Close",
+      "enabledWhen": "always"
+    }
+  ],
+  "capture": {
+    "scope": "entire Windows desktop including system menu and Snap Layouts popups",
+    "nativeUiAutomationTree": true,
+    "recordedInputCoordinates": true,
+    "requiredEvidence": [
+      "screens/",
+      "video/",
+      "recorder/",
+      "native-tree/",
+      "events.jsonl"
+    ],
+    "retainDays": 14
+  },
+  "cases": [
+    {
+      "id": "S02-WIN-01-native-pointer-open",
+      "platform": "windows",
+      "distribution": "windows-2025",
+      "session": "interactive-desktop",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "interactive Windows desktop",
+            "UI Automation provider",
+            "whole-desktop capture including native popups",
+            "physical input injection",
+            "100-percent display scale or recorded CSS-to-screen conversion",
+            "synthetic app binary matching SHELL_SPIKE_ID=s02"
+          ]
+        },
+        {
+          "action": "launch",
+          "menuMode": "native",
+          "caseId": "S02-WIN-01-native-pointer-open"
+        }
+      ],
+      "actions": [
+        {
+          "action": "set-menu-mode",
+          "mode": "native"
+        },
+        {
+          "action": "discover",
+          "target": "S02 empty title bar",
+          "via": "UI Automation"
+        },
+        {
+          "action": "right-click",
+          "target": "S02 empty title bar",
+          "input": "physical mouse"
+        },
+        {
+          "action": "capture",
+          "scope": "whole desktop including native popup"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "S02-WIN-01-native-pointer-open-pointer-entry",
+          "requirement": "A real right-click on empty title-bar space opens the native system menu at the recorded physical screen coordinate.",
+          "expected": "A real right-click on empty title-bar space opens the native system menu at the recorded physical screen coordinate.",
+          "evidence": [
+            "native-tree",
+            "geometry-json",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S02-WIN-01-native-pointer-open-keyboard-entry",
+          "requirement": "The native system menu exposes Restore, Move, Size, Minimize, Maximize and Close.",
+          "expected": "The native system menu exposes Restore, Move, Size, Minimize, Maximize and Close.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S02-WIN-02-alt-space-input",
+      "platform": "windows",
+      "distribution": "windows-2025",
+      "session": "interactive-desktop",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "interactive Windows desktop",
+            "UI Automation provider",
+            "whole-desktop capture including native popups",
+            "physical input injection",
+            "100-percent display scale or recorded CSS-to-screen conversion",
+            "synthetic app binary matching SHELL_SPIKE_ID=s02"
+          ]
+        },
+        {
+          "action": "launch",
+          "menuMode": "native",
+          "caseId": "S02-WIN-02-alt-space-input"
+        }
+      ],
+      "actions": [
+        {
+          "action": "set-menu-mode",
+          "mode": "native"
+        },
+        {
+          "action": "focus",
+          "target": "S02 sample input"
+        },
+        {
+          "action": "press",
+          "keys": "Alt+Space",
+          "input": "physical keyboard"
+        },
+        {
+          "action": "capture",
+          "scope": "whole desktop including native popup"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "S02-WIN-02-alt-space-input-keyboard-entry",
+          "requirement": "WebView2 AcceleratorKeyPressed intercepts Alt+Space while sample input has focus, marks the event handled, and opens the native system menu at the window top-left.",
+          "expected": "WebView2 AcceleratorKeyPressed intercepts Alt+Space while sample input has focus, marks the event handled, and opens the native system menu at the window top-left.",
+          "evidence": [
+            "native-tree",
+            "geometry-json",
+            "screen",
+            "video",
+            "events.jsonl",
+            "webview2-accelerator"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S02-WIN-03-alt-space-empty-chrome",
+      "platform": "windows",
+      "distribution": "windows-2025",
+      "session": "interactive-desktop",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "interactive Windows desktop",
+            "UI Automation provider",
+            "whole-desktop capture including native popups",
+            "physical input injection",
+            "100-percent display scale or recorded CSS-to-screen conversion",
+            "synthetic app binary matching SHELL_SPIKE_ID=s02"
+          ]
+        },
+        {
+          "action": "launch",
+          "menuMode": "native",
+          "caseId": "S02-WIN-03-alt-space-empty-chrome"
+        }
+      ],
+      "actions": [
+        {
+          "action": "set-menu-mode",
+          "mode": "native"
+        },
+        {
+          "action": "focus",
+          "target": "S02 empty title bar"
+        },
+        {
+          "action": "press",
+          "keys": "Alt+Space",
+          "input": "physical keyboard"
+        },
+        {
+          "action": "capture",
+          "scope": "whole desktop including native popup"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "S02-WIN-03-alt-space-empty-chrome-keyboard-entry",
+          "requirement": "WebView2 AcceleratorKeyPressed intercepts Alt+Space while empty chrome has focus, marks the event handled, and opens the native system menu at the window top-left.",
+          "expected": "WebView2 AcceleratorKeyPressed intercepts Alt+Space while empty chrome has focus, marks the event handled, and opens the native system menu at the window top-left.",
+          "evidence": [
+            "native-tree",
+            "geometry-json",
+            "screen",
+            "video",
+            "events.jsonl",
+            "webview2-accelerator"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S02-WIN-04-app-icon-entry",
+      "platform": "windows",
+      "distribution": "windows-2025",
+      "session": "interactive-desktop",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "interactive Windows desktop",
+            "UI Automation provider",
+            "whole-desktop capture including native popups",
+            "physical input injection",
+            "100-percent display scale or recorded CSS-to-screen conversion",
+            "synthetic app binary matching SHELL_SPIKE_ID=s02"
+          ]
+        },
+        {
+          "action": "launch",
+          "menuMode": "native",
+          "caseId": "S02-WIN-04-app-icon-entry"
+        }
+      ],
+      "actions": [
+        {
+          "action": "set-menu-mode",
+          "mode": "native"
+        },
+        {
+          "action": "click",
+          "target": "S02 app icon",
+          "input": "physical mouse"
+        },
+        {
+          "action": "capture",
+          "scope": "whole desktop including native popup"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "S02-WIN-04-app-icon-entry-command-behavior",
+          "requirement": "Clicking the synthetic window-menu icon opens the native system menu at the window top-left.",
+          "expected": "Clicking the synthetic window-menu icon opens the native system menu at the window top-left.",
+          "evidence": [
+            "native-tree",
+            "geometry-json",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S02-WIN-05-enabled-items-normal",
+      "platform": "windows",
+      "distribution": "windows-2025",
+      "session": "interactive-desktop",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "interactive Windows desktop",
+            "UI Automation provider",
+            "whole-desktop capture including native popups",
+            "physical input injection",
+            "100-percent display scale or recorded CSS-to-screen conversion",
+            "synthetic app binary matching SHELL_SPIKE_ID=s02"
+          ]
+        },
+        {
+          "action": "launch",
+          "menuMode": "native",
+          "caseId": "S02-WIN-05-enabled-items-normal"
+        }
+      ],
+      "actions": [
+        {
+          "action": "set-window-state",
+          "state": "normal"
+        },
+        {
+          "action": "open-menu",
+          "target": "S02 empty title bar",
+          "input": "physical right-click"
+        },
+        {
+          "action": "capture",
+          "scope": "whole desktop and native item tree"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "S02-WIN-05-enabled-items-normal-enabled-state",
+          "requirement": "In the normal state Restore is disabled; Move, Size, Minimize, Maximize and Close are enabled when applicable.",
+          "expected": "In the normal state Restore is disabled; Move, Size, Minimize, Maximize and Close are enabled when applicable.",
+          "evidence": [
+            "native-tree",
+            "os-event",
+            "screen"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S02-WIN-06-enabled-items-maximized",
+      "platform": "windows",
+      "distribution": "windows-2025",
+      "session": "interactive-desktop",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "interactive Windows desktop",
+            "UI Automation provider",
+            "whole-desktop capture including native popups",
+            "physical input injection",
+            "100-percent display scale or recorded CSS-to-screen conversion",
+            "synthetic app binary matching SHELL_SPIKE_ID=s02"
+          ]
+        },
+        {
+          "action": "launch",
+          "menuMode": "native",
+          "caseId": "S02-WIN-06-enabled-items-maximized"
+        }
+      ],
+      "actions": [
+        {
+          "action": "set-window-state",
+          "state": "maximized"
+        },
+        {
+          "action": "open-menu",
+          "target": "S02 empty title bar",
+          "input": "physical right-click"
+        },
+        {
+          "action": "capture",
+          "scope": "whole desktop and native item tree"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "S02-WIN-06-enabled-items-maximized-enabled-state",
+          "requirement": "In the maximized state Restore is enabled; Size and Maximize are disabled; other applicable commands retain their correct state.",
+          "expected": "In the maximized state Restore is enabled; Size and Maximize are disabled; other applicable commands retain their correct state.",
+          "evidence": [
+            "native-tree",
+            "os-event",
+            "screen"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S02-WIN-07-native-mouse-command-matrix",
+      "platform": "windows",
+      "distribution": "windows-2025",
+      "session": "interactive-desktop",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "interactive Windows desktop",
+            "UI Automation provider",
+            "whole-desktop capture including native popups",
+            "physical input injection",
+            "100-percent display scale or recorded CSS-to-screen conversion",
+            "synthetic app binary matching SHELL_SPIKE_ID=s02"
+          ]
+        },
+        {
+          "action": "launch",
+          "menuMode": "native",
+          "caseId": "S02-WIN-07-native-mouse-command-matrix"
+        }
+      ],
+      "actions": [
+        {
+          "action": "set-menu-mode",
+          "mode": "native"
+        },
+        {
+          "action": "select-system-commands",
+          "commands": [
+            "restore",
+            "move",
+            "size",
+            "minimize",
+            "maximize",
+            "close"
+          ],
+          "selection": "physical-mouse",
+          "states": "normal-and-maximized"
+        },
+        {
+          "action": "capture",
+          "scope": "whole desktop and per-command bounds/visibility"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "S02-WIN-07-native-mouse-command-matrix-command-behavior",
+          "requirement": "Physical mouse selection invokes Restore, Move, Size, Minimize, Maximize and Close in applicable normal or maximized states.",
+          "expected": "Physical mouse selection invokes Restore, Move, Size, Minimize, Maximize and Close in applicable normal or maximized states.",
+          "evidence": [
+            "native-tree",
+            "events.jsonl",
+            "geometry-json",
+            "os-event",
+            "video"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S02-WIN-08-native-keyboard-command-matrix",
+      "platform": "windows",
+      "distribution": "windows-2025",
+      "session": "interactive-desktop",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "interactive Windows desktop",
+            "UI Automation provider",
+            "whole-desktop capture including native popups",
+            "physical input injection",
+            "100-percent display scale or recorded CSS-to-screen conversion",
+            "synthetic app binary matching SHELL_SPIKE_ID=s02"
+          ]
+        },
+        {
+          "action": "launch",
+          "menuMode": "native",
+          "caseId": "S02-WIN-08-native-keyboard-command-matrix"
+        }
+      ],
+      "actions": [
+        {
+          "action": "set-menu-mode",
+          "mode": "native"
+        },
+        {
+          "action": "select-system-commands",
+          "commands": [
+            "restore",
+            "move",
+            "size",
+            "minimize",
+            "maximize",
+            "close"
+          ],
+          "selection": "physical-keyboard",
+          "states": "normal-and-maximized"
+        },
+        {
+          "action": "capture",
+          "scope": "whole desktop and per-command bounds/visibility"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "S02-WIN-08-native-keyboard-command-matrix-command-behavior",
+          "requirement": "Physical keyboard selection invokes Restore, Move, Size, Minimize, Maximize and Close in applicable normal or maximized states.",
+          "expected": "Physical keyboard selection invokes Restore, Move, Size, Minimize, Maximize and Close in applicable normal or maximized states.",
+          "evidence": [
+            "native-tree",
+            "events.jsonl",
+            "geometry-json",
+            "os-event",
+            "video"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S02-WIN-09-move-and-size-bounds",
+      "platform": "windows",
+      "distribution": "windows-2025",
+      "session": "interactive-desktop",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "interactive Windows desktop",
+            "UI Automation provider",
+            "whole-desktop capture including native popups",
+            "physical input injection",
+            "100-percent display scale or recorded CSS-to-screen conversion",
+            "synthetic app binary matching SHELL_SPIKE_ID=s02"
+          ]
+        },
+        {
+          "action": "launch",
+          "menuMode": "native",
+          "caseId": "S02-WIN-09-move-and-size-bounds"
+        }
+      ],
+      "actions": [
+        {
+          "action": "set-window-state",
+          "state": "normal"
+        },
+        {
+          "action": "select-system-commands",
+          "commands": [
+            "move",
+            "size"
+          ],
+          "selection": "physical-mouse-and-keyboard-adjustment"
+        },
+        {
+          "action": "select-system-commands",
+          "commands": [
+            "move",
+            "size"
+          ],
+          "selection": "physical-keyboard"
+        },
+        {
+          "action": "measure",
+          "target": "native window screen bounds",
+          "when": "before-and-after each command"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "S02-WIN-09-move-and-size-bounds-command-behavior",
+          "requirement": "Selecting Move and Size changes the measured native window screen bounds through mouse and keyboard operation paths.",
+          "expected": "Selecting Move and Size changes the measured native window screen bounds through mouse and keyboard operation paths.",
+          "evidence": [
+            "geometry-json",
+            "events.jsonl",
+            "screen",
+            "video"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S02-WIN-10-minimize-and-restore-visibility",
+      "platform": "windows",
+      "distribution": "windows-2025",
+      "session": "interactive-desktop",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "interactive Windows desktop",
+            "UI Automation provider",
+            "whole-desktop capture including native popups",
+            "physical input injection",
+            "100-percent display scale or recorded CSS-to-screen conversion",
+            "synthetic app binary matching SHELL_SPIKE_ID=s02"
+          ]
+        },
+        {
+          "action": "launch",
+          "menuMode": "native",
+          "caseId": "S02-WIN-10-minimize-and-restore-visibility"
+        }
+      ],
+      "actions": [
+        {
+          "action": "set-window-state",
+          "state": "normal"
+        },
+        {
+          "action": "select-system-command",
+          "command": "minimize",
+          "selection": "physical-mouse"
+        },
+        {
+          "action": "measure",
+          "target": "window visibility"
+        },
+        {
+          "action": "select-system-command",
+          "command": "restore",
+          "selection": "physical-keyboard after maximized state"
+        },
+        {
+          "action": "measure",
+          "target": "window visibility and state"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "S02-WIN-10-minimize-and-restore-visibility-command-behavior",
+          "requirement": "Minimize hides the native window and Restore returns it to a visible normal state.",
+          "expected": "Minimize hides the native window and Restore returns it to a visible normal state.",
+          "evidence": [
+            "os-event",
+            "geometry-json",
+            "screen",
+            "video"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S02-WIN-11-negative-control-context",
+      "platform": "windows",
+      "distribution": "windows-2025",
+      "session": "interactive-desktop",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "interactive Windows desktop",
+            "UI Automation provider",
+            "whole-desktop capture including native popups",
+            "physical input injection",
+            "100-percent display scale or recorded CSS-to-screen conversion",
+            "synthetic app binary matching SHELL_SPIKE_ID=s02"
+          ]
+        },
+        {
+          "action": "launch",
+          "menuMode": "native",
+          "caseId": "S02-WIN-11-negative-control-context"
+        }
+      ],
+      "actions": [
+        {
+          "action": "set-menu-mode",
+          "mode": "native"
+        },
+        {
+          "action": "right-click",
+          "target": "S02 sample tab",
+          "input": "physical mouse"
+        },
+        {
+          "action": "right-click",
+          "target": "S02 maximize button",
+          "input": "physical mouse"
+        },
+        {
+          "action": "capture",
+          "scope": "whole desktop and active menu trees"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "S02-WIN-11-negative-control-context-command-behavior",
+          "requirement": "Right-clicking a tab or maximize control does not open the system menu; tab context behavior remains separate.",
+          "expected": "Right-clicking a tab or maximize control does not open the system menu; tab context behavior remains separate.",
+          "evidence": [
+            "native-tree",
+            "events.jsonl",
+            "screen",
+            "video"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S02-WIN-12-escape-dismissal",
+      "platform": "windows",
+      "distribution": "windows-2025",
+      "session": "interactive-desktop",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "interactive Windows desktop",
+            "UI Automation provider",
+            "whole-desktop capture including native popups",
+            "physical input injection",
+            "100-percent display scale or recorded CSS-to-screen conversion",
+            "synthetic app binary matching SHELL_SPIKE_ID=s02"
+          ]
+        },
+        {
+          "action": "launch",
+          "menuMode": "native",
+          "caseId": "S02-WIN-12-escape-dismissal"
+        }
+      ],
+      "actions": [
+        {
+          "action": "open-menu",
+          "target": "S02 empty title bar",
+          "input": "Alt+Space"
+        },
+        {
+          "action": "press",
+          "keys": "Escape",
+          "input": "physical keyboard"
+        },
+        {
+          "action": "measure",
+          "target": "menu visibility and focus return"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "S02-WIN-12-escape-dismissal-command-behavior",
+          "requirement": "Escape dismisses the native menu without invoking a command and returns focus to its opener.",
+          "expected": "Escape dismisses the native menu without invoking a command and returns focus to its opener.",
+          "evidence": [
+            "native-tree",
+            "events.jsonl",
+            "screen",
+            "video"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S02-WIN-13-snap-windows-2025",
+      "platform": "windows",
+      "distribution": "windows-2025",
+      "session": "interactive-desktop",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "interactive Windows desktop",
+            "UI Automation provider",
+            "whole-desktop capture including native popups",
+            "physical input injection",
+            "100-percent display scale or recorded CSS-to-screen conversion",
+            "synthetic app binary matching SHELL_SPIKE_ID=s02"
+          ]
+        },
+        {
+          "action": "launch",
+          "menuMode": "native",
+          "caseId": "S02-WIN-13-snap-windows-2025"
+        }
+      ],
+      "actions": [
+        {
+          "action": "hover",
+          "target": "real HTMAXBUTTON hit target",
+          "durationSeconds": 2
+        },
+        {
+          "action": "capture",
+          "scope": "whole desktop and native popup UIA tree"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "S02-WIN-13-snap-windows-2025-arrangement-popup",
+          "requirement": "Hover over the real HTMAXBUTTON hit target and capture the operating system Snap Layouts popup if the Server runner exposes it.",
+          "expected": "Hover over the real HTMAXBUTTON hit target and capture the operating system Snap Layouts popup if the Server runner exposes it.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        }
+      ],
+      "unavailableVerdict": "UNVERIFIED"
+    },
+    {
+      "id": "S02-WIN-14-snap-windows-11-arm",
+      "platform": "windows",
+      "distribution": "windows-11-arm",
+      "session": "interactive-desktop",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "interactive Windows desktop",
+            "UI Automation provider",
+            "whole-desktop capture including native popups",
+            "physical input injection",
+            "100-percent display scale or recorded CSS-to-screen conversion",
+            "synthetic app binary matching SHELL_SPIKE_ID=s02"
+          ]
+        },
+        {
+          "action": "launch",
+          "menuMode": "native",
+          "caseId": "S02-WIN-14-snap-windows-11-arm"
+        }
+      ],
+      "actions": [
+        {
+          "action": "hover",
+          "target": "real HTMAXBUTTON hit target",
+          "durationSeconds": 2
+        },
+        {
+          "action": "capture",
+          "scope": "whole desktop and native popup UIA tree"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "S02-WIN-14-snap-windows-11-arm-arrangement-popup",
+          "requirement": "Hover over the real HTMAXBUTTON hit target and observe the real Windows 11 client Snap Layouts popup.",
+          "expected": "Hover over the real HTMAXBUTTON hit target and observe the real Windows 11 client Snap Layouts popup.",
+          "evidence": [
+            "native-tree",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        }
+      ],
+      "unavailableVerdict": "UNVERIFIED"
+    },
+    {
+      "id": "S02-WIN-15-native-close-guard-relaunch",
+      "platform": "windows",
+      "distribution": "windows-2025",
+      "session": "interactive-desktop",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "interactive Windows desktop",
+            "UI Automation provider",
+            "whole-desktop capture including native popups",
+            "physical input injection",
+            "100-percent display scale or recorded CSS-to-screen conversion",
+            "synthetic app binary matching SHELL_SPIKE_ID=s02"
+          ]
+        },
+        {
+          "action": "launch",
+          "menuMode": "native",
+          "caseId": "S02-WIN-15-native-close-guard-relaunch"
+        }
+      ],
+      "actions": [
+        {
+          "action": "set-menu-mode",
+          "mode": "native"
+        },
+        {
+          "action": "open-menu",
+          "target": "S02 empty title bar",
+          "input": "Alt+Space"
+        },
+        {
+          "action": "select-system-command",
+          "command": "close",
+          "selection": "physical-mouse"
+        },
+        {
+          "action": "accept-close-guard"
+        },
+        {
+          "action": "relaunch"
+        },
+        {
+          "action": "open-menu",
+          "target": "S02 empty title bar",
+          "input": "physical right-click"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "S02-WIN-15-native-close-guard-relaunch-command-behavior",
+          "requirement": "Native Close reaches the synthetic close guard; after accepting and relaunching, the other input path still opens the native menu.",
+          "expected": "Native Close reaches the synthetic close guard; after accepting and relaunching, the other input path still opens the native menu.",
+          "evidence": [
+            "native-tree",
+            "events.jsonl",
+            "os-event",
+            "screen",
+            "video"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S02-WIN-16-kit-fallback-pointer-and-icon",
+      "platform": "windows",
+      "distribution": "windows-2025",
+      "session": "interactive-desktop",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "interactive Windows desktop",
+            "UI Automation provider",
+            "whole-desktop capture including native popups",
+            "physical input injection",
+            "100-percent display scale or recorded CSS-to-screen conversion",
+            "synthetic app binary matching SHELL_SPIKE_ID=s02"
+          ]
+        },
+        {
+          "action": "launch",
+          "menuMode": "kit",
+          "caseId": "S02-WIN-16-kit-fallback-pointer-and-icon"
+        }
+      ],
+      "actions": [
+        {
+          "action": "set-menu-mode",
+          "mode": "kit"
+        },
+        {
+          "action": "right-click",
+          "target": "S02 empty title bar",
+          "input": "physical mouse"
+        },
+        {
+          "action": "capture"
+        },
+        {
+          "action": "dismiss",
+          "input": "Escape"
+        },
+        {
+          "action": "click",
+          "target": "S02 app icon",
+          "input": "physical mouse"
+        },
+        {
+          "action": "capture"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "S02-WIN-16-kit-fallback-pointer-and-icon-pointer-entry",
+          "requirement": "The kit fallback opens at the pointer for empty chrome and at the top-left from the synthetic window-menu icon.",
+          "expected": "The kit fallback opens at the pointer for empty chrome and at the top-left from the synthetic window-menu icon.",
+          "evidence": [
+            "native-tree",
+            "geometry-json",
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S02-WIN-17-kit-fallback-keyboard",
+      "platform": "windows",
+      "distribution": "windows-2025",
+      "session": "interactive-desktop",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "interactive Windows desktop",
+            "UI Automation provider",
+            "whole-desktop capture including native popups",
+            "physical input injection",
+            "100-percent display scale or recorded CSS-to-screen conversion",
+            "synthetic app binary matching SHELL_SPIKE_ID=s02"
+          ]
+        },
+        {
+          "action": "launch",
+          "menuMode": "kit",
+          "caseId": "S02-WIN-17-kit-fallback-keyboard"
+        }
+      ],
+      "actions": [
+        {
+          "action": "set-menu-mode",
+          "mode": "kit"
+        },
+        {
+          "action": "focus",
+          "target": "S02 sample input"
+        },
+        {
+          "action": "press",
+          "keys": "Alt+Space",
+          "input": "physical keyboard"
+        },
+        {
+          "action": "press",
+          "keys": "ArrowDown, Home, End, Escape",
+          "input": "physical keyboard"
+        },
+        {
+          "action": "focus",
+          "target": "S02 empty title bar"
+        },
+        {
+          "action": "press",
+          "keys": "Alt+Space",
+          "input": "physical keyboard"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "S02-WIN-17-kit-fallback-keyboard-command-behavior",
+          "requirement": "Fallback Alt+Space opens from input and empty-chrome focus; arrows, Home, End, Enter and Escape operate the menu.",
+          "expected": "Fallback Alt+Space opens from input and empty-chrome focus; arrows, Home, End, Enter and Escape operate the menu.",
+          "evidence": [
+            "native-tree",
+            "events.jsonl",
+            "geometry-json",
+            "screen",
+            "video"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S02-WIN-18-kit-fallback-command-matrix",
+      "platform": "windows",
+      "distribution": "windows-2025",
+      "session": "interactive-desktop",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "interactive Windows desktop",
+            "UI Automation provider",
+            "whole-desktop capture including native popups",
+            "physical input injection",
+            "100-percent display scale or recorded CSS-to-screen conversion",
+            "synthetic app binary matching SHELL_SPIKE_ID=s02"
+          ]
+        },
+        {
+          "action": "launch",
+          "menuMode": "kit",
+          "caseId": "S02-WIN-18-kit-fallback-command-matrix"
+        }
+      ],
+      "actions": [
+        {
+          "action": "set-menu-mode",
+          "mode": "kit"
+        },
+        {
+          "action": "select-system-commands",
+          "commands": [
+            "restore",
+            "move",
+            "size",
+            "minimize",
+            "maximize",
+            "close"
+          ],
+          "selection": "physical-mouse"
+        },
+        {
+          "action": "select-system-commands",
+          "commands": [
+            "restore",
+            "move",
+            "size",
+            "minimize",
+            "maximize",
+            "close"
+          ],
+          "selection": "physical-keyboard"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "S02-WIN-18-kit-fallback-command-matrix-command-behavior",
+          "requirement": "The fallback has the same six items and enabled states and every applicable command works through physical mouse and keyboard selection.",
+          "expected": "The fallback has the same six items and enabled states and every applicable command works through physical mouse and keyboard selection.",
+          "evidence": [
+            "native-tree",
+            "events.jsonl",
+            "geometry-json",
+            "os-event",
+            "screen",
+            "video"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S02-WIN-19-kit-fallback-close-guard-relaunch",
+      "platform": "windows",
+      "distribution": "windows-2025",
+      "session": "interactive-desktop",
+      "setup": [
+        {
+          "action": "preflight",
+          "requirements": [
+            "interactive Windows desktop",
+            "UI Automation provider",
+            "whole-desktop capture including native popups",
+            "physical input injection",
+            "100-percent display scale or recorded CSS-to-screen conversion",
+            "synthetic app binary matching SHELL_SPIKE_ID=s02"
+          ]
+        },
+        {
+          "action": "launch",
+          "menuMode": "kit",
+          "caseId": "S02-WIN-19-kit-fallback-close-guard-relaunch"
+        }
+      ],
+      "actions": [
+        {
+          "action": "set-menu-mode",
+          "mode": "kit"
+        },
+        {
+          "action": "open-menu",
+          "target": "S02 sample input",
+          "input": "Alt+Space"
+        },
+        {
+          "action": "select-system-command",
+          "command": "close",
+          "selection": "physical-keyboard"
+        },
+        {
+          "action": "accept-close-guard"
+        },
+        {
+          "action": "relaunch"
+        },
+        {
+          "action": "set-menu-mode",
+          "mode": "kit"
+        },
+        {
+          "action": "right-click",
+          "target": "S02 empty title bar",
+          "input": "physical mouse"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "S02-WIN-19-kit-fallback-close-guard-relaunch-command-behavior",
+          "requirement": "Fallback Close reaches the synthetic guard; after relaunch the other entry path still opens the fallback menu.",
+          "expected": "Fallback Close reaches the synthetic guard; after relaunch the other entry path still opens the fallback menu.",
+          "evidence": [
+            "native-tree",
+            "events.jsonl",
+            "os-event",
+            "screen",
+            "video"
+          ]
+        }
+      ]
+    }
+  ],
+  "verdictPolicy": {
+    "pass": "Every assertion has a native or full-desktop evidence pointer that resolves in the uploaded artifact.",
+    "fail": "The expected OS-owned menu, command behavior, geometry, focus, or visibility is disproved.",
+    "unverified": "The runner cannot expose or capture the native behavior; select the stated fallback and keep Snap open if neither client runner exposes it."
+  }
+}

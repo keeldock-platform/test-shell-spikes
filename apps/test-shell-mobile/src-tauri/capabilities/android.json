@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "android",
+  "description": "Android-only grants for the synthetic accent event bridge.",
+  "windows": ["main"],
+  "platforms": ["android"],
+  "permissions": [
+    "core:event:allow-emit",
+    "s11-accent:allow-current-accent",
+    "s11-accent:allow-accent-listeners"
+  ]
+}

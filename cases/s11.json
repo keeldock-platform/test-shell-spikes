@@ -1,0 +1,998 @@
+{
+  "schemaVersion": 1,
+  "spike": "s11",
+  "title": "System accent host doors across desktop and Android",
+  "cases": [
+    {
+      "id": "S11-MACOS-LIVE",
+      "platform": "macOS",
+      "session": "macos-15 hosted desktop; AppKit",
+      "setup": [
+        "Use only the synthetic S11 shell; no product source, branding, private assets, credentials, or user data.",
+        "Record frozen SHA, runner image, OS/session, display refresh, native runtime/webview, recorder details, and clock calibration in environment.json.",
+        "Start whole-session 60 Hz video and event capture before launch. Drive actual OS settings; never synthesize an OS event or count renderer injection as native delivery.",
+        "Use disposable runner System Settings Appearance UI; record setup-only Accessibility grant separately."
+      ],
+      "actions": [
+        "The S11 fixture seeds its stored accent value as System; wait for reader-ready and confirm the System source before changing the OS preference.",
+        "Read NSColor.controlAccentColor independently in sRGB.",
+        "Select a different accent swatch through System Settings UI and read it back.",
+        "Observe NSSystemColorsDidChangeNotification through host, token mutation and first presented frame.",
+        "Try real swatches for a low-contrast sample; do not inject if none qualifies."
+      ],
+      "assertions": [
+        {
+          "id": "S11-MACOS-READBACK",
+          "requirement": "Read the selected OS accent independently and compare it with the host's sRGB value.",
+          "expected": "Independent native readback and host snapshot agree within 1/255. NSColor.controlAccentColor converted to sRGB plus NSSystemColorsDidChangeNotification.",
+          "evidence": [
+            "environment.json",
+            "native-readback",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S11-MACOS-EVENT",
+          "requirement": "A real OS preference change produces the platform native event and exactly one correlated host update.",
+          "expected": "Record native event, fresh sequence ID, cause, independent readback and host value. Missing delivery is FAIL or UNVERIFIED, never pass.",
+          "evidence": [
+            "os-event",
+            "native-readback",
+            "events.jsonl",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-MACOS-FRAME",
+          "requirement": "The event reaches accent tokens and the first presented frame within one measured frame.",
+          "expected": "Correlate native event, host update, token mutation and first visible changed frame by sequence ID; at 60 Hz, no more than 16.67 ms.",
+          "evidence": [
+            "events.jsonl",
+            "frame-marker",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-MACOS-UPDATE",
+          "requirement": "One OS change causes one coordinated token update without reload.",
+          "expected": "Exactly one accepted host update and token mutation per OS event; no reload or uncorrelated update.",
+          "evidence": [
+            "events.jsonl",
+            "frame-marker",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-MACOS-PROMPT",
+          "requirement": "The reader requires no permission prompt.",
+          "expected": "No prompt from the accent-reader path. Accessibility/capture setup grants are recorded separately.",
+          "evidence": [
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S11-MACOS-CLAMP",
+          "requirement": "A real low-contrast OS accent uses the nearest valid colour from the test palette when the system can produce one.",
+          "expected": "Try real OS palette choices and read each independently. If one is below 3:1 against the surface or below 4.5:1 for text on the fill, apply the nearest valid colour from the synthetic test palette. If none qualifies, mark conditional/UNVERIFIED; the separate injection proves clamp logic only.",
+          "evidence": [
+            "native-readback",
+            "events.jsonl",
+            "screen",
+            "video"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S11-WINDOWS-LIVE",
+      "platform": "Windows",
+      "session": "windows-2025 hosted desktop; UISettings",
+      "setup": [
+        "Use only the synthetic S11 shell; no product source, branding, private assets, credentials, or user data.",
+        "Record frozen SHA, runner image, OS/session, display refresh, native runtime/webview, recorder details, and clock calibration in environment.json.",
+        "Start whole-session 60 Hz video and event capture before launch. Drive actual OS settings; never synthesize an OS event or count renderer injection as native delivery.",
+        "Record Windows build and UISettings runtime status. Microsoft documents ColorValuesChanged as unsupported in desktop apps; do not substitute registry notifications. If no real callback can be delivered, record failure/unverified and exercise hidden-System fallback."
+      ],
+      "actions": [
+        "The S11 fixture seeds its stored accent value as System; wait for reader-ready and confirm the System source before changing the OS preference.",
+        "Read UISettings.GetColorValue(Accent) independently.",
+        "Use the real Windows Colors settings UI automation helper to select a different accent swatch.",
+        "Read back and observe UISettings.ColorValuesChanged in the desktop host; capture registration/callback failures."
+      ],
+      "assertions": [
+        {
+          "id": "S11-WINDOWS-READBACK",
+          "requirement": "Read the selected OS accent independently and compare it with the host's sRGB value.",
+          "expected": "Independent native readback and host snapshot agree within 1/255. UISettings.GetColorValue(Accent) and ColorValuesChanged; unsupported desktop callback means fallback, not a claimed pass.",
+          "evidence": [
+            "environment.json",
+            "native-readback",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S11-WINDOWS-EVENT",
+          "requirement": "A real OS preference change produces the platform native event and exactly one correlated host update.",
+          "expected": "Record native event, fresh sequence ID, cause, independent readback and host value. Missing delivery is FAIL or UNVERIFIED, never pass.",
+          "evidence": [
+            "os-event",
+            "native-readback",
+            "events.jsonl",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-WINDOWS-FRAME",
+          "requirement": "The event reaches accent tokens and the first presented frame within one measured frame.",
+          "expected": "Correlate native event, host update, token mutation and first visible changed frame by sequence ID; at 60 Hz, no more than 16.67 ms.",
+          "evidence": [
+            "events.jsonl",
+            "frame-marker",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-WINDOWS-UPDATE",
+          "requirement": "One OS change causes one coordinated token update without reload.",
+          "expected": "Exactly one accepted host update and token mutation per OS event; no reload or uncorrelated update.",
+          "evidence": [
+            "events.jsonl",
+            "frame-marker",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-WINDOWS-PROMPT",
+          "requirement": "The reader requires no permission prompt.",
+          "expected": "No prompt from the accent-reader path. Accessibility/capture setup grants are recorded separately.",
+          "evidence": [
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S11-WINDOWS-CLAMP",
+          "requirement": "A real low-contrast OS accent uses the nearest valid colour from the test palette when the system can produce one.",
+          "expected": "Try real OS palette choices and read each independently. If one is below 3:1 against the surface or below 4.5:1 for text on the fill, apply the nearest valid colour from the synthetic test palette. If none qualifies, mark conditional/UNVERIFIED; the separate injection proves clamp logic only.",
+          "evidence": [
+            "native-readback",
+            "events.jsonl",
+            "screen",
+            "video"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S11-LINUX-UBUNTU-24",
+      "platform": "Linux",
+      "session": "Ubuntu 24.04 GNOME Wayland hosted VM; exact portal/backend recorded",
+      "setup": [
+        "Use only the synthetic S11 shell; no product source, branding, private assets, credentials, or user data.",
+        "Record frozen SHA, runner image, OS/session, display refresh, native runtime/webview, recorder details, and clock calibration in environment.json.",
+        "Start whole-session 60 Hz video and event capture before launch. Drive actual OS settings; never synthesize an OS event or count renderer injection as native delivery.",
+        "Probe the key first; if absent, mark the live branch conditional and do not claim delivery.",
+        "Record XDG portal interface version, daemon/backend/GNOME versions, key support and Read result."
+      ],
+      "actions": [
+        "The S11 fixture seeds its stored accent value as System; wait for reader-ready and confirm the System source before changing the OS preference.",
+        "Run linux-probe.sh.",
+        "If Read gives a valid (ddd) sRGB tuple, independently read it, change GNOME accent through Settings/gsettings and capture portal SettingChanged.",
+        "If service/key is unavailable, prove hidden-System brand fallback and mark live delivery conditional.",
+        "Correlate any real portal event through host and first presented frame."
+      ],
+      "assertions": [
+        {
+          "id": "S11-LINUX-UBUNTU-24-PROBE",
+          "requirement": "Discover Linux portal version, backend and key support.",
+          "expected": "Record distro/session, portal interface version, daemon/backend/GNOME versions, key Read result and exact support status.",
+          "evidence": [
+            "environment.json",
+            "native-readback",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S11-LINUX-UBUNTU-24-LIVE-READBACK",
+          "requirement": "Compare the host snapshot with an independent portal Read value.",
+          "expected": "For a valid exposed key, the host and independent (ddd) portal readback agree within 1/255. If the key/service is absent, this assertion is conditional/UNVERIFIED and the fallback assertion applies.",
+          "evidence": [
+            "native-readback",
+            "events.jsonl",
+            "environment.json"
+          ]
+        },
+        {
+          "id": "S11-LINUX-UBUNTU-24-LIVE-EVENT",
+          "requirement": "A real OS preference change produces the platform native event and exactly one correlated host update.",
+          "expected": "Record native event, fresh sequence ID, cause, independent readback and host value. Missing delivery is FAIL or UNVERIFIED, never pass.",
+          "evidence": [
+            "os-event",
+            "native-readback",
+            "events.jsonl",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-LINUX-UBUNTU-24-LIVE-FRAME",
+          "requirement": "The event reaches accent tokens and the first presented frame within one measured frame.",
+          "expected": "Correlate native event, host update, token mutation and first visible changed frame by sequence ID; at 60 Hz, no more than 16.67 ms.",
+          "evidence": [
+            "events.jsonl",
+            "frame-marker",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-LINUX-UBUNTU-24-LIVE-UPDATE",
+          "requirement": "One OS change causes one coordinated token update without reload.",
+          "expected": "Exactly one accepted host update and token mutation per OS event; no reload or uncorrelated update.",
+          "evidence": [
+            "events.jsonl",
+            "frame-marker",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-LINUX-UBUNTU-24-LIVE-PROMPT",
+          "requirement": "The reader requires no permission prompt.",
+          "expected": "No prompt from the accent-reader path. Accessibility/capture setup grants are recorded separately.",
+          "evidence": [
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S11-LINUX-UBUNTU-24-LIVE-CLAMP",
+          "requirement": "A real low-contrast OS accent uses the nearest valid colour from the test palette when the system can produce one.",
+          "expected": "Try real OS palette choices and read each independently. If one is below 3:1 against the surface or below 4.5:1 for text on the fill, apply the nearest valid colour from the synthetic test palette. If none qualifies, mark conditional/UNVERIFIED; the separate injection proves clamp logic only.",
+          "evidence": [
+            "native-readback",
+            "events.jsonl",
+            "screen",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-LINUX-UBUNTU-24-FALLBACK",
+          "requirement": "If key/service is absent, hide System and resolve stored system to brand.",
+          "expected": "Record the reason, hidden control, brand token; this is a conditional path and not a live-delivery pass.",
+          "evidence": [
+            "events.jsonl",
+            "screen",
+            "frame-marker"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S11-LINUX-UBUNTU-26",
+      "platform": "Linux",
+      "session": "Ubuntu 26.04 GNOME Wayland hosted VM; exact portal/backend recorded",
+      "setup": [
+        "Use only the synthetic S11 shell; no product source, branding, private assets, credentials, or user data.",
+        "Record frozen SHA, runner image, OS/session, display refresh, native runtime/webview, recorder details, and clock calibration in environment.json.",
+        "Start whole-session 60 Hz video and event capture before launch. Drive actual OS settings; never synthesize an OS event or count renderer injection as native delivery.",
+        "Record interface version and Read result; do not infer support from version.",
+        "Record XDG portal interface version, daemon/backend/GNOME versions, key support and Read result."
+      ],
+      "actions": [
+        "The S11 fixture seeds its stored accent value as System; wait for reader-ready and confirm the System source before changing the OS preference.",
+        "Run linux-probe.sh.",
+        "If Read gives a valid (ddd) sRGB tuple, independently read it, change GNOME accent through Settings/gsettings and capture portal SettingChanged.",
+        "If service/key is unavailable, prove hidden-System brand fallback and mark live delivery conditional.",
+        "Correlate any real portal event through host and first presented frame."
+      ],
+      "assertions": [
+        {
+          "id": "S11-LINUX-UBUNTU-26-PROBE",
+          "requirement": "Discover Linux portal version, backend and key support.",
+          "expected": "Record distro/session, portal interface version, daemon/backend/GNOME versions, key Read result and exact support status.",
+          "evidence": [
+            "environment.json",
+            "native-readback",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S11-LINUX-UBUNTU-26-LIVE-READBACK",
+          "requirement": "Compare the host snapshot with an independent portal Read value.",
+          "expected": "For a valid exposed key, the host and independent (ddd) portal readback agree within 1/255. If the key/service is absent, this assertion is conditional/UNVERIFIED and the fallback assertion applies.",
+          "evidence": [
+            "native-readback",
+            "events.jsonl",
+            "environment.json"
+          ]
+        },
+        {
+          "id": "S11-LINUX-UBUNTU-26-LIVE-EVENT",
+          "requirement": "A real OS preference change produces the platform native event and exactly one correlated host update.",
+          "expected": "Record native event, fresh sequence ID, cause, independent readback and host value. Missing delivery is FAIL or UNVERIFIED, never pass.",
+          "evidence": [
+            "os-event",
+            "native-readback",
+            "events.jsonl",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-LINUX-UBUNTU-26-LIVE-FRAME",
+          "requirement": "The event reaches accent tokens and the first presented frame within one measured frame.",
+          "expected": "Correlate native event, host update, token mutation and first visible changed frame by sequence ID; at 60 Hz, no more than 16.67 ms.",
+          "evidence": [
+            "events.jsonl",
+            "frame-marker",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-LINUX-UBUNTU-26-LIVE-UPDATE",
+          "requirement": "One OS change causes one coordinated token update without reload.",
+          "expected": "Exactly one accepted host update and token mutation per OS event; no reload or uncorrelated update.",
+          "evidence": [
+            "events.jsonl",
+            "frame-marker",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-LINUX-UBUNTU-26-LIVE-PROMPT",
+          "requirement": "The reader requires no permission prompt.",
+          "expected": "No prompt from the accent-reader path. Accessibility/capture setup grants are recorded separately.",
+          "evidence": [
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S11-LINUX-UBUNTU-26-LIVE-CLAMP",
+          "requirement": "A real low-contrast OS accent uses the nearest valid colour from the test palette when the system can produce one.",
+          "expected": "Try real OS palette choices and read each independently. If one is below 3:1 against the surface or below 4.5:1 for text on the fill, apply the nearest valid colour from the synthetic test palette. If none qualifies, mark conditional/UNVERIFIED; the separate injection proves clamp logic only.",
+          "evidence": [
+            "native-readback",
+            "events.jsonl",
+            "screen",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-LINUX-UBUNTU-26-FALLBACK",
+          "requirement": "If key/service is absent, hide System and resolve stored system to brand.",
+          "expected": "Record the reason, hidden control, brand token; this is a conditional path and not a live-delivery pass.",
+          "evidence": [
+            "events.jsonl",
+            "screen",
+            "frame-marker"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S11-LINUX-FEDORA-CURRENT",
+      "platform": "Linux",
+      "session": "Fedora current GNOME Wayland hosted VM; pin exact image and capture versions",
+      "setup": [
+        "Use only the synthetic S11 shell; no product source, branding, private assets, credentials, or user data.",
+        "Record frozen SHA, runner image, OS/session, display refresh, native runtime/webview, recorder details, and clock calibration in environment.json.",
+        "Start whole-session 60 Hz video and event capture before launch. Drive actual OS settings; never synthesize an OS event or count renderer injection as native delivery.",
+        "Discover key support independently and pin this wave's Fedora image.",
+        "Record XDG portal interface version, daemon/backend/GNOME versions, key support and Read result."
+      ],
+      "actions": [
+        "The S11 fixture seeds its stored accent value as System; wait for reader-ready and confirm the System source before changing the OS preference.",
+        "Run linux-probe.sh.",
+        "If Read gives a valid (ddd) sRGB tuple, independently read it, change GNOME accent through Settings/gsettings and capture portal SettingChanged.",
+        "If service/key is unavailable, prove hidden-System brand fallback and mark live delivery conditional.",
+        "Correlate any real portal event through host and first presented frame."
+      ],
+      "assertions": [
+        {
+          "id": "S11-LINUX-FEDORA-CURRENT-PROBE",
+          "requirement": "Discover Linux portal version, backend and key support.",
+          "expected": "Record distro/session, portal interface version, daemon/backend/GNOME versions, key Read result and exact support status.",
+          "evidence": [
+            "environment.json",
+            "native-readback",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S11-LINUX-FEDORA-CURRENT-LIVE-READBACK",
+          "requirement": "Compare the host snapshot with an independent portal Read value.",
+          "expected": "For a valid exposed key, the host and independent (ddd) portal readback agree within 1/255. If the key/service is absent, this assertion is conditional/UNVERIFIED and the fallback assertion applies.",
+          "evidence": [
+            "native-readback",
+            "events.jsonl",
+            "environment.json"
+          ]
+        },
+        {
+          "id": "S11-LINUX-FEDORA-CURRENT-LIVE-EVENT",
+          "requirement": "A real OS preference change produces the platform native event and exactly one correlated host update.",
+          "expected": "Record native event, fresh sequence ID, cause, independent readback and host value. Missing delivery is FAIL or UNVERIFIED, never pass.",
+          "evidence": [
+            "os-event",
+            "native-readback",
+            "events.jsonl",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-LINUX-FEDORA-CURRENT-LIVE-FRAME",
+          "requirement": "The event reaches accent tokens and the first presented frame within one measured frame.",
+          "expected": "Correlate native event, host update, token mutation and first visible changed frame by sequence ID; at 60 Hz, no more than 16.67 ms.",
+          "evidence": [
+            "events.jsonl",
+            "frame-marker",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-LINUX-FEDORA-CURRENT-LIVE-UPDATE",
+          "requirement": "One OS change causes one coordinated token update without reload.",
+          "expected": "Exactly one accepted host update and token mutation per OS event; no reload or uncorrelated update.",
+          "evidence": [
+            "events.jsonl",
+            "frame-marker",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-LINUX-FEDORA-CURRENT-LIVE-PROMPT",
+          "requirement": "The reader requires no permission prompt.",
+          "expected": "No prompt from the accent-reader path. Accessibility/capture setup grants are recorded separately.",
+          "evidence": [
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S11-LINUX-FEDORA-CURRENT-LIVE-CLAMP",
+          "requirement": "A real low-contrast OS accent uses the nearest valid colour from the test palette when the system can produce one.",
+          "expected": "Try real OS palette choices and read each independently. If one is below 3:1 against the surface or below 4.5:1 for text on the fill, apply the nearest valid colour from the synthetic test palette. If none qualifies, mark conditional/UNVERIFIED; the separate injection proves clamp logic only.",
+          "evidence": [
+            "native-readback",
+            "events.jsonl",
+            "screen",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-LINUX-FEDORA-CURRENT-FALLBACK",
+          "requirement": "If key/service is absent, hide System and resolve stored system to brand.",
+          "expected": "Record the reason, hidden control, brand token; this is a conditional path and not a live-delivery pass.",
+          "evidence": [
+            "events.jsonl",
+            "screen",
+            "frame-marker"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S11-LINUX-ABSENT-KEY",
+      "platform": "Linux",
+      "session": "Ubuntu 24.04 GNOME session after independent portal probe",
+      "setup": [
+        "Use only the synthetic S11 shell; no product source, branding, private assets, credentials, or user data.",
+        "Record frozen SHA, runner image, OS/session, display refresh, native runtime/webview, recorder details, and clock calibration in environment.json.",
+        "Start whole-session 60 Hz video and event capture before launch. Drive actual OS settings; never synthesize an OS event or count renderer injection as native delivery.",
+        "Run the portal probe first. Only execute the real missing-key branch if Read confirms the key absent. If present, mark NOT APPLICABLE and run the isolated fault case."
+      ],
+      "actions": [
+        "Record portal interface version and independent Read result.",
+        "If key is absent, launch the real reader and select stored System.",
+        "Capture unavailable reason, System visibility and resolved token."
+      ],
+      "assertions": [
+        {
+          "id": "S11-LINUX-ABSENT-KEY-PROBE",
+          "requirement": "Independently confirm whether the portal key is absent.",
+          "expected": "Record exact Read result and interface version. A present key means NOT APPLICABLE, not pass.",
+          "evidence": [
+            "environment.json",
+            "native-readback",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S11-LINUX-ABSENT-KEY-BRAND",
+          "requirement": "Without the key, System is hidden and stored system resolves to brand.",
+          "expected": "System hidden; no raw system color; brand token applied without reader permission prompt.",
+          "evidence": [
+            "events.jsonl",
+            "screen",
+            "frame-marker"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S11-LINUX-FAULT-FALLBACKS",
+      "platform": "Linux",
+      "session": "Isolated controllable D-Bus portal; adapter fault fixtures only",
+      "setup": [
+        "Use only the synthetic S11 shell; no product source, branding, private assets, credentials, or user data.",
+        "Record frozen SHA, runner image, OS/session, display refresh, native runtime/webview, recorder details, and clock calibration in environment.json.",
+        "Start whole-session 60 Hz video and event capture before launch. Drive actual OS settings; never synthesize an OS event or count renderer injection as native delivery.",
+        "Use isolated Settings test service or safely disabled portal. This evidence proves adapter fallback only and never real GNOME live delivery."
+      ],
+      "actions": [
+        "Run separate subcases for absent service, missing key/read failure, malformed tuple, out-of-range channel, and SettingChanged subscription failure.",
+        "For each, select stored System and capture status, visibility and brand token."
+      ],
+      "assertions": [
+        {
+          "id": "S11-LINUX-FAULT-SERVICE",
+          "requirement": "Absent portal service falls back.",
+          "expected": "portal-service-unavailable; System hidden; stored system resolves brand.",
+          "evidence": [
+            "events.jsonl",
+            "screen",
+            "frame-marker"
+          ]
+        },
+        {
+          "id": "S11-LINUX-FAULT-KEY",
+          "requirement": "Absent key/read error falls back and keeps discovered interface version.",
+          "expected": "Fake service records key error; System hidden; brand resolved.",
+          "evidence": [
+            "environment.json",
+            "events.jsonl",
+            "screen"
+          ]
+        },
+        {
+          "id": "S11-LINUX-FAULT-MALFORMED",
+          "requirement": "Malformed/out-of-range RGB is unavailable.",
+          "expected": "Reject wrong shape, non-finite or out-of-[0,1] channels; hide System and apply brand.",
+          "evidence": [
+            "events.jsonl",
+            "screen",
+            "frame-marker"
+          ]
+        },
+        {
+          "id": "S11-LINUX-FAULT-SUBSCRIBE",
+          "requirement": "Failed SettingChanged subscription is unavailable.",
+          "expected": "portal-subscription-failed; System hidden; brand resolved.",
+          "evidence": [
+            "events.jsonl",
+            "screen",
+            "frame-marker"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S11-ANDROID-API-31",
+      "platform": "Android",
+      "session": "API 31 accelerated emulator on ubuntu-24.04; dynamic colour resource",
+      "setup": [
+        "Use only the synthetic S11 shell; no product source, branding, private assets, credentials, or user data.",
+        "Record frozen SHA, runner image, OS/session, display refresh, native runtime/webview, recorder details, and clock calibration in environment.json.",
+        "Start whole-session 60 Hz video and event capture before launch. Drive actual OS settings; never synthesize an OS event or count renderer injection as native delivery.",
+        "Record API/build, wallpaper ID, system_accent1_500 ARGB, callback sequence, activity generation and permission-prompt state."
+      ],
+      "actions": [
+        "The S11 fixture seeds its stored accent value as System; wait for reader-ready and confirm the System source before changing the OS preference.",
+        "Read the API 31+ dynamic resource and current system wallpaper ID.",
+        "Open the platform wallpaper picker, select a distinct synthetic test wallpaper and Apply; record which wallpaper/configuration callback fires and the new resource.",
+        "Recreate the Activity; record the non-native readback and verify the app-scoped listener remains attached.",
+        "Select and apply a second distinct wallpaper after recreation; record its callback, wallpaper ID/resource, sequence and first presented frame."
+      ],
+      "assertions": [
+        {
+          "id": "S11-ANDROID-API-31-WALLPAPER",
+          "requirement": "Real wallpaper/palette change reaches the dynamic-colour reader.",
+          "expected": "Record the actual WallpaperManager or changed-fingerprint configuration callback, wallpaper ID and resource. The callback source and sequence must be visible; recreation/configuration reads without a changed fingerprint are not native events.",
+          "evidence": [
+            "environment.json",
+            "native-readback",
+            "os-event",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S11-ANDROID-API-31-FRAME",
+          "requirement": "Native event reaches tokens and first presented frame within a 60 Hz frame.",
+          "expected": "Sequence-correlated event-to-presentation <=16.67 ms.",
+          "evidence": [
+            "events.jsonl",
+            "frame-marker",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-ANDROID-API-31-RECREATE",
+          "requirement": "Activity recreation restores current state without a fabricated OS event.",
+          "expected": "Generation advances and current wallpaper ID/resource are reread with nativeEvent=false for recreation itself. A second real wallpaper change after recreation reaches the still-attached reader exactly once.",
+          "evidence": [
+            "events.jsonl",
+            "environment.json",
+            "screen"
+          ]
+        },
+        {
+          "id": "S11-ANDROID-API-31-PROMPT",
+          "requirement": "Reader uses no wallpaper/storage permission.",
+          "expected": "No reader prompt, wallpaper file read or storage permission.",
+          "evidence": [
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S11-ANDROID-API-31-IDENTITY",
+          "requirement": "Accent changes leave identity colours independent.",
+          "expected": "Accent follows OS sample after clamp; identity sample remains #6B5B45.",
+          "evidence": [
+            "events.jsonl",
+            "screen",
+            "frame-marker"
+          ]
+        },
+        {
+          "id": "S11-ANDROID-API-31-CLAMP",
+          "requirement": "A real low-contrast dynamic-colour sample uses the nearest valid colour from the test palette when available.",
+          "expected": "Try wallpaper palettes and independently read the resource. If any sample is below 3:1 against the surface or below 4.5:1 for text on the fill, the nearest valid synthetic test colour is applied. If none qualifies, mark conditional/UNVERIFIED; the renderer boundary case proves clamp logic only.",
+          "evidence": [
+            "native-readback",
+            "events.jsonl",
+            "screen",
+            "video"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S11-ANDROID-API-35",
+      "platform": "Android",
+      "session": "API 35 accelerated emulator on ubuntu-24.04; dynamic colour resource",
+      "setup": [
+        "Use only the synthetic S11 shell; no product source, branding, private assets, credentials, or user data.",
+        "Record frozen SHA, runner image, OS/session, display refresh, native runtime/webview, recorder details, and clock calibration in environment.json.",
+        "Start whole-session 60 Hz video and event capture before launch. Drive actual OS settings; never synthesize an OS event or count renderer injection as native delivery.",
+        "Record API/build, wallpaper ID, system_accent1_500 ARGB, callback sequence, activity generation and permission-prompt state."
+      ],
+      "actions": [
+        "The S11 fixture seeds its stored accent value as System; wait for reader-ready and confirm the System source before changing the OS preference.",
+        "Read the API 31+ dynamic resource and current system wallpaper ID.",
+        "Open the platform wallpaper picker, select a distinct synthetic test wallpaper and Apply; record which wallpaper/configuration callback fires and the new resource.",
+        "Recreate the Activity; record the non-native readback and verify the app-scoped listener remains attached.",
+        "Select and apply a second distinct wallpaper after recreation; record its callback, wallpaper ID/resource, sequence and first presented frame."
+      ],
+      "assertions": [
+        {
+          "id": "S11-ANDROID-API-35-WALLPAPER",
+          "requirement": "Real wallpaper/palette change reaches the dynamic-colour reader.",
+          "expected": "Record the actual WallpaperManager or changed-fingerprint configuration callback, wallpaper ID and resource. The callback source and sequence must be visible; recreation/configuration reads without a changed fingerprint are not native events.",
+          "evidence": [
+            "environment.json",
+            "native-readback",
+            "os-event",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S11-ANDROID-API-35-FRAME",
+          "requirement": "Native event reaches tokens and first presented frame within a 60 Hz frame.",
+          "expected": "Sequence-correlated event-to-presentation <=16.67 ms.",
+          "evidence": [
+            "events.jsonl",
+            "frame-marker",
+            "video"
+          ]
+        },
+        {
+          "id": "S11-ANDROID-API-35-RECREATE",
+          "requirement": "Activity recreation restores current state without a fabricated OS event.",
+          "expected": "Generation advances and current wallpaper ID/resource are reread with nativeEvent=false for recreation itself. A second real wallpaper change after recreation reaches the still-attached reader exactly once.",
+          "evidence": [
+            "events.jsonl",
+            "environment.json",
+            "screen"
+          ]
+        },
+        {
+          "id": "S11-ANDROID-API-35-PROMPT",
+          "requirement": "Reader uses no wallpaper/storage permission.",
+          "expected": "No reader prompt, wallpaper file read or storage permission.",
+          "evidence": [
+            "screen",
+            "video",
+            "events.jsonl"
+          ]
+        },
+        {
+          "id": "S11-ANDROID-API-35-IDENTITY",
+          "requirement": "Accent changes leave identity colours independent.",
+          "expected": "Accent follows OS sample after clamp; identity sample remains #6B5B45.",
+          "evidence": [
+            "events.jsonl",
+            "screen",
+            "frame-marker"
+          ]
+        },
+        {
+          "id": "S11-ANDROID-API-35-CLAMP",
+          "requirement": "A real low-contrast dynamic-colour sample uses the nearest valid colour from the test palette when available.",
+          "expected": "Try wallpaper palettes and independently read the resource. If any sample is below 3:1 against the surface or below 4.5:1 for text on the fill, the nearest valid synthetic test colour is applied. If none qualifies, mark conditional/UNVERIFIED; the renderer boundary case proves clamp logic only.",
+          "evidence": [
+            "native-readback",
+            "events.jsonl",
+            "screen",
+            "video"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S11-ANDROID-API-30-NEGATIVE",
+      "platform": "Android",
+      "session": "API 30 accelerated emulator on ubuntu-24.04",
+      "setup": [
+        "Use only the synthetic S11 shell; no product source, branding, private assets, credentials, or user data.",
+        "Record frozen SHA, runner image, OS/session, display refresh, native runtime/webview, recorder details, and clock calibration in environment.json.",
+        "Start whole-session 60 Hz video and event capture before launch. Drive actual OS settings; never synthesize an OS event or count renderer injection as native delivery.",
+        "Confirm API 30 and capture resource access and dialogs."
+      ],
+      "actions": [
+        "The S11 fixture seeds stored accent as System; observe the API 30 unavailable reason, hidden control and brand resolution.",
+        "Observe reader reason, control visibility and resolved token."
+      ],
+      "assertions": [
+        {
+          "id": "S11-ANDROID-API-30-HIDDEN",
+          "requirement": "Below API 31, System is hidden and stored system resolves brand.",
+          "expected": "api-below-31; dynamic resource not read; System hidden; brand token applied.",
+          "evidence": [
+            "environment.json",
+            "events.jsonl",
+            "screen",
+            "frame-marker"
+          ]
+        },
+        {
+          "id": "S11-ANDROID-API-30-PROMPT",
+          "requirement": "API 30 fallback has no permission prompt.",
+          "expected": "No reader permission prompt.",
+          "evidence": [
+            "screen",
+            "video"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S11-ANDROID-PROVIDER-UNAVAILABLE",
+      "platform": "Android",
+      "session": "API 31+ Android reader adapter fault fixture; no native wallpaper event",
+      "setup": [
+        "Use only the synthetic S11 shell and AndroidAccentReader adapter.",
+        "Use the optional readSystemAccent fixture callback to return a resource failure. This proves unavailable fallback only and cannot count as a real OS event.",
+        "Record API, reason, stored enum, permission prompts and resolved token."
+      ],
+      "actions": [
+        "Construct the reader with a callback that throws a resource-unavailable exception.",
+        "The fixture seeds stored accent as System; capture reader status, hidden control and resolved token."
+      ],
+      "assertions": [
+        {
+          "id": "S11-ANDROID-PROVIDER-BRAND",
+          "requirement": "API 31+ without a working dynamic-colour provider is unavailable and resolves stored System to brand.",
+          "expected": "Reader reports dynamic-colour-resource-unavailable, emits no nativeEvent=true, hides System and applies brand without a permission prompt.",
+          "evidence": [
+            "environment.json",
+            "events.jsonl",
+            "screen",
+            "frame-marker"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S11-MACOS-DEFAULT-BRAND-IDENTITY",
+      "platform": "macOS",
+      "session": "macOS 15 hosted desktop session; default synthetic setting",
+      "setup": [
+        "Use only the synthetic S11 shell. Start 60 Hz capture and record environment.json.",
+        "Begin with the shell default stored accent and the fixed synthetic identity colour."
+      ],
+      "actions": [
+        "Capture initial accent source and token before selecting System.",
+        "After the OS reader initializes, select Use System accent, then change the real OS accent if available; verify identity sample remains unchanged."
+      ],
+      "assertions": [
+        {
+          "id": "S11-MACOS-DEFAULT-BRAND",
+          "requirement": "Brand is the default accent and identity colours remain independent of OS accent.",
+          "expected": "Initial stored/resolved source is brand. A later System event may change accent tokens only; identity sample remains #6B5B45.",
+          "evidence": [
+            "events.jsonl",
+            "screen",
+            "frame-marker",
+            "video"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S11-CONTRAST-BOUNDARY-INJECTION",
+      "platform": "Fixture",
+      "session": "Synthetic renderer boundary only; not an OS event",
+      "setup": [
+        "Use only the synthetic S11 shell; no product source, branding, private assets, credentials, or user data.",
+        "Record frozen SHA, runner image, OS/session, display refresh, native runtime/webview, recorder details, and clock calibration in environment.json.",
+        "Start whole-session 60 Hz video and event capture before launch. Drive actual OS settings; never synthesize an OS event or count renderer injection as native delivery.",
+        "This proves clamp logic only; it never counts as native delivery."
+      ],
+      "actions": [
+        "Inject labelled synthetic raw accent #E8F0FC.",
+        "Capture contrast, nearest valid fixture-kit accent, applied token and nativeEvent=false."
+      ],
+      "assertions": [
+        {
+          "id": "S11-CONTRAST-CLAMP",
+          "requirement": "A low-contrast raw sample uses nearest valid fixture-kit accent.",
+          "expected": "Raw fails <3:1 surface or <4.5:1 ink threshold; nearest eligible fixture accent is applied and satisfies both limits.",
+          "evidence": [
+            "events.jsonl",
+            "screen",
+            "frame-marker"
+          ]
+        },
+        {
+          "id": "S11-CONTRAST-NATIVE",
+          "requirement": "Boundary injection is excluded from OS event evidence.",
+          "expected": "boundary-injection/clamp-only, nativeEvent=false; not counted in native event totals.",
+          "evidence": [
+            "events.jsonl"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S11-HIGH-CONTRAST-IGNORES-SYSTEM",
+      "platform": "Fixture",
+      "session": "Synthetic high-contrast theme with available System sample",
+      "setup": [
+        "Use only the synthetic S11 shell; no product source, branding, private assets, credentials, or user data.",
+        "Record frozen SHA, runner image, OS/session, display refresh, native runtime/webview, recorder details, and clock calibration in environment.json.",
+        "Start whole-session 60 Hz video and event capture before launch. Drive actual OS settings; never synthesize an OS event or count renderer injection as native delivery.",
+        "Use the high-contrast theme fixture while a system sample is present."
+      ],
+      "actions": [
+        "Select System then enable high-contrast preview.",
+        "Capture raw OS sample, resolved source, fill and ink."
+      ],
+      "assertions": [
+        {
+          "id": "S11-HIGH-CONTRAST-IGNORED",
+          "requirement": "High contrast ignores System and uses high-contrast theme tokens.",
+          "expected": "Resolved source is high-contrast-theme; fill and ink each meet 7:1 against fixture surface.",
+          "evidence": [
+            "events.jsonl",
+            "screen",
+            "frame-marker"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S11-POLICY-WEB",
+      "platform": "Web",
+      "session": "Web policy fixture; no OS accent read attempted",
+      "setup": [
+        "Use only the synthetic S11 shell; no product source, branding, private assets, credentials, or user data.",
+        "Record frozen SHA, runner image, OS/session, display refresh, native runtime/webview, recorder details, and clock calibration in environment.json.",
+        "Start whole-session 60 Hz video and event capture before launch. Drive actual OS settings; never synthesize an OS event or count renderer injection as native delivery.",
+        "Use policy-only renderer fixture; do not invoke or probe native reader."
+      ],
+      "actions": [
+        "Select stored System in the fixture.",
+        "Capture control visibility and resolved token."
+      ],
+      "assertions": [
+        {
+          "id": "S11-POLICY-WEB-HIDDEN",
+          "requirement": "Web always hides System without reading OS accent.",
+          "expected": "System hidden; stored system resolves brand; no native reader invocation or OS read.",
+          "evidence": [
+            "events.jsonl",
+            "screen",
+            "frame-marker"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S11-POLICY-IPHONE",
+      "platform": "iPhone",
+      "session": "iPhone policy fixture; no OS accent read attempted",
+      "setup": [
+        "Use only the synthetic S11 shell; no product source, branding, private assets, credentials, or user data.",
+        "Record frozen SHA, runner image, OS/session, display refresh, native runtime/webview, recorder details, and clock calibration in environment.json.",
+        "Start whole-session 60 Hz video and event capture before launch. Drive actual OS settings; never synthesize an OS event or count renderer injection as native delivery.",
+        "Use policy-only renderer fixture; do not invoke or probe native reader."
+      ],
+      "actions": [
+        "Select stored System in the fixture.",
+        "Capture control visibility and resolved token."
+      ],
+      "assertions": [
+        {
+          "id": "S11-POLICY-IPHONE-HIDDEN",
+          "requirement": "iPhone always hides System without reading OS accent.",
+          "expected": "System hidden; stored system resolves brand; no native reader invocation or OS read.",
+          "evidence": [
+            "events.jsonl",
+            "screen",
+            "frame-marker"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S11-POLICY-IPAD",
+      "platform": "iPad",
+      "session": "iPad policy fixture; no OS accent read attempted",
+      "setup": [
+        "Use only the synthetic S11 shell; no product source, branding, private assets, credentials, or user data.",
+        "Record frozen SHA, runner image, OS/session, display refresh, native runtime/webview, recorder details, and clock calibration in environment.json.",
+        "Start whole-session 60 Hz video and event capture before launch. Drive actual OS settings; never synthesize an OS event or count renderer injection as native delivery.",
+        "Use policy-only renderer fixture; do not invoke or probe native reader."
+      ],
+      "actions": [
+        "Select stored System in the fixture.",
+        "Capture control visibility and resolved token."
+      ],
+      "assertions": [
+        {
+          "id": "S11-POLICY-IPAD-HIDDEN",
+          "requirement": "iPad always hides System without reading OS accent.",
+          "expected": "System hidden; stored system resolves brand; no native reader invocation or OS read.",
+          "evidence": [
+            "events.jsonl",
+            "screen",
+            "frame-marker"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S11-SYSTEM-UNAVAILABLE-RESOLVES-BRAND",
+      "platform": "Linux",
+      "session": "Unavailable Linux portal reader with stored System",
+      "setup": [
+        "Use only the synthetic S11 shell; no product source, branding, private assets, credentials, or user data.",
+        "Record frozen SHA, runner image, OS/session, display refresh, native runtime/webview, recorder details, and clock calibration in environment.json.",
+        "Start whole-session 60 Hz video and event capture before launch. Drive actual OS settings; never synthesize an OS event or count renderer injection as native delivery.",
+        "Use absent portal service or isolated absent-service fault; mark fault-only evidence separately."
+      ],
+      "actions": [
+        "Launch with stored accent System.",
+        "Capture reader reason, control visibility and token source."
+      ],
+      "assertions": [
+        {
+          "id": "S11-SYSTEM-UNAVAILABLE-BRAND",
+          "requirement": "Unavailable System resolves to brand while preserving stored enum.",
+          "expected": "Stored value remains System; control hidden; source and applied token are brand; reason is recorded.",
+          "evidence": [
+            "events.jsonl",
+            "screen",
+            "frame-marker"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "spike": "SHELL-SPIKE-01",
+  "title": "Two-row traffic lights",
+  "platform": "macOS",
+  "window": {
+    "decorations": true,
+    "titleBarStyle": "Overlay",
+    "creationTrafficLightPosition": {
+      "x": 14,
+      "y": 14,
+      "units": "logical-points",
+      "note": "Comfortable row-1 initial position; CI must confirm actual AppKit button frames."
+    }
+  },
+  "geometry": {
+    "comfortable": { "row1": 34, "row2": 30, "twoRowBar": 64, "capsuleBar": 34 },
+    "compact": { "row1": 30, "row2": 28, "twoRowBar": 58, "capsuleBar": 30 },
+    "fallback": { "compactRow1": 34, "compactRow2": 28, "compactTwoRowBar": 62 }
+  },
+  "capture": {
+    "scope": "entire macOS desktop including native title-bar controls",
+    "targetFramesPerSecond": 60,
+    "requiredTimestampedFrames": true,
+    "rejectDroppedOrDuplicatedCaptureTimestamps": true,
+    "marker": "S01 visible 24-bit sequence plus phase marker in the app viewport",
+    "scales": "run at every backing scale available on macos-15 and list observed scales"
+  },
+  "assertions": [
+    {
+      "id": "S01-CREATION-POSITION",
+      "expected": "Record all three native AppKit button frames from the creation-time trafficLightPosition config before runtime reposition.",
+      "evidence": ["events.jsonl", "environment.json"]
+    },
+    {
+      "id": "S01-CENTER-ROW1",
+      "expected": "Each native button centre is within 1 logical point of row-1 centre after every density and layout switch.",
+      "evidence": ["events.jsonl", "video/capture-index.jsonl"]
+    },
+    {
+      "id": "S01-NO-OLD-POSITION-FLASH",
+      "expected": "No captured frame after the new sequence marker is visible contains a traffic-light pixel at the previous row position.",
+      "evidence": ["video/capture-index.jsonl", "events.jsonl", "video/"]
+    },
+    {
+      "id": "S1-13",
+      "expected": "Zero native traffic-light pixels in the calibrated titlebar control region in every settled full-screen density/layout combination.",
+      "evidence": ["video/capture-index.jsonl", "events.jsonl", "video/"]
+    },
+    {
+      "id": "S01-NATIVE-GEOMETRY-SUPPLEMENTAL",
+      "expected": "Preserve initial horizontal x positions and report native button diameters and inter-button gaps against TitleBar field 1 (12pt controls, 8pt gaps).",
+      "evidence": ["events.jsonl", "environment.json"]
+    },
+    {
+      "id": "S01-BACKING-SCALE",
+      "expected": "Record the native backing scale and verify the capture coordinate mapping against it for every available scale.",
+      "evidence": ["events.jsonl", "video/capture-index.jsonl"]
+    },
+    {
+      "id": "S01-FULLSCREEN-ANIMATION",
+      "expected": "Correlate every captured full-screen animation frame to a recent native state poll; unresolved frame state is UNVERIFIED.",
+      "evidence": ["events.jsonl", "video/capture-index.jsonl"]
+    },
+    {
+      "id": "S01-CAPTURE-CADENCE",
+      "expected": "Every consecutive full-desktop capture frame has a monotonic timestamp and no dropped or duplicated frame interval.",
+      "evidence": ["video/capture-index.jsonl"]
+    },
+    {
+      "id": "S01-CAPTURE-FPS",
+      "expected": "Measured full-desktop capture cadence is at least 59 frames per second for the 60fps target.",
+      "evidence": ["video/capture-index.jsonl"]
+    },
+    {
+      "id": "S01-CAPTURE-FRAME",
+      "expected": "Every indexed S01 frame has a safe relative image path and usable display mapping.",
+      "evidence": ["video/capture-index.jsonl", "video/"]
+    },
+    {
+      "id": "S01-MARKER-CORRELATION",
+      "expected": "Every transition frame's visible sequence and phase marker maps to a native-state event.",
+      "evidence": ["video/capture-index.jsonl", "events.jsonl"]
+    },
+    {
+      "id": "S01-NATIVE-TIMING",
+      "expected": "Capture frames are ordered against native-state events on the same monotonic timebase.",
+      "evidence": ["video/capture-index.jsonl", "events.jsonl"]
+    }
+  ],
+  "cases": [
+    { "id": "S01-CAPTURE", "steps": ["capture full desktop at 60fps", "run the ordered S01 creation, density, layout, fullscreen and S1-13 matrix", "correlate images, native events and timestamps"], "assertions": ["S01-CREATION-POSITION", "S01-CENTER-ROW1", "S01-NO-OLD-POSITION-FLASH", "S1-13", "S01-NATIVE-GEOMETRY-SUPPLEMENTAL", "S01-BACKING-SCALE", "S01-FULLSCREEN-ANIMATION", "S01-CAPTURE-CADENCE", "S01-CAPTURE-FPS", "S01-CAPTURE-FRAME", "S01-MARKER-CORRELATION", "S01-NATIVE-TIMING"] },
+    { "id": "S01-CREATION", "initial": "decorated Overlay window; creation trafficLightPosition x14/y14", "steps": ["inspect native frames", "runtime reposition to comfortable row one"], "assertions": ["S01-CREATION-POSITION", "S01-CENTER-ROW1", "S01-NO-OLD-POSITION-FLASH"] },
+    { "id": "S01-DENSITY-01", "steps": ["comfortable rows", "compact rows"], "assertions": ["S01-CENTER-ROW1", "S01-NO-OLD-POSITION-FLASH"] },
+    { "id": "S01-DENSITY-02", "steps": ["compact rows", "comfortable rows"], "assertions": ["S01-CENTER-ROW1", "S01-NO-OLD-POSITION-FLASH"] },
+    { "id": "S01-LAYOUT-01", "steps": ["comfortable rows", "comfortable Team capsules"], "assertions": ["S01-CENTER-ROW1", "S01-NO-OLD-POSITION-FLASH"] },
+    { "id": "S01-LAYOUT-02", "steps": ["comfortable Team capsules", "comfortable rows"], "assertions": ["S01-CENTER-ROW1", "S01-NO-OLD-POSITION-FLASH"] },
+    { "id": "S01-FS-01", "initial": "comfortable rows", "steps": ["enter full screen", "exit full screen"], "assertions": ["S01-CENTER-ROW1", "S1-13"] },
+    { "id": "S01-FS-02", "setup": "compact rows", "steps": ["enter full screen", "exit full screen"], "assertions": ["S01-CENTER-ROW1", "S1-13"] },
+    { "id": "S01-FS-03", "setup": "comfortable Team capsules", "steps": ["enter full screen", "exit full screen"], "assertions": ["S01-CENTER-ROW1", "S1-13"] },
+    { "id": "S01-FS-04", "setup": "compact Team capsules", "steps": ["enter full screen", "exit full screen"], "assertions": ["S01-CENTER-ROW1", "S1-13"] },
+    { "id": "S01-FS-COMBO-01", "setup": "comfortable rows", "steps": ["enter full screen", "compact", "Team capsules", "comfortable", "Two rows", "exit full screen"], "assertions": ["S01-CENTER-ROW1", "S1-13"] },
+    { "id": "S01-FS-COMBO-02", "setup": "comfortable rows", "steps": ["compact", "Team capsules", "enter full screen", "comfortable", "Two rows", "compact", "Team capsules", "exit full screen"], "assertions": ["S01-CENTER-ROW1", "S1-13"] },
+    {
+      "id": "S01-S1-13-MATRIX",
+      "matrix": ["comfortable rows", "compact rows", "comfortable Team capsules", "compact Team capsules"],
+      "expected": "No native traffic-light pixels in the calibrated control region after each settled full-screen entry.",
+      "assertions": ["S1-13"]
+    }
+  ],
+  "uiEvidenceIds": [
+    "S01-PREFLIGHT", "S01-CREATION",
+    "S01-DENSITY-01", "S01-DENSITY-02",
+    "S01-LAYOUT-01", "S01-LAYOUT-02",
+    "S01-FS-01", "S01-FS-01-exit",
+    "S01-FS-02-setup-density", "S01-FS-02", "S01-FS-02-exit",
+    "S01-FS-03-setup-density", "S01-FS-03-setup-layout", "S01-FS-03", "S01-FS-03-exit",
+    "S01-FS-04-setup-density", "S01-FS-04", "S01-FS-04-exit",
+    "S01-FS-COMBO-01-setup-density", "S01-FS-COMBO-01-setup-layout",
+    "S01-FS-COMBO-01A", "S01-FS-COMBO-01B", "S01-FS-COMBO-01C", "S01-FS-COMBO-01D", "S01-FS-COMBO-01E", "S01-FS-COMBO-01F",
+    "S01-FS-COMBO-02A", "S01-FS-COMBO-02B", "S01-FS-COMBO-02C", "S01-FS-COMBO-02D", "S01-FS-COMBO-02E", "S01-FS-COMBO-02F", "S01-FS-COMBO-02G", "S01-FS-COMBO-02H",
+    "S1-13-comfortable-rows-setup-density", "S1-13-comfortable-rows-setup-layout",
+    "S1-13-comfortable-rows", "S1-13-comfortable-rows-exit",
+    "S1-13-compact-rows-setup-density", "S1-13-compact-rows", "S1-13-compact-rows-exit",
+    "S1-13-comfortable-capsules-setup-density", "S1-13-comfortable-capsules-setup-layout", "S1-13-comfortable-capsules", "S1-13-comfortable-capsules-exit",
+    "S1-13-compact-capsules-setup-density", "S1-13-compact-capsules", "S1-13-compact-capsules-exit"
+  ],
+  "fallback": {
+    "position": "fixed at comfortable-height position",
+    "compactRow1": 34,
+    "compactRow2": 28,
+    "compactTwoRowBar": 62,
+    "fullscreen": "still require no visible native traffic lights; unresolved transition capture is UNVERIFIED"
+  },
+  "verdictPolicy": {
+    "pass": "all binding assertions evidenced in the run",
+    "fail": "an assertion is disproved; select the stated fallback",
+    "unverified": "runner, permission preflight, backing scale, full-desktop capture, cadence, or animation cannot resolve an assertion; select the stated fallback"
+  }
+}
+

@@ -1,0 +1,50 @@
+"$schema" = "schemas/schema.json"
+
+[[permission]]
+identifier = "allow-s08-settings"
+description = "Allow only the mock settings, step-up, picker, and page-state commands in the settings window."
+commands.allow = [
+  "s08_read_settings",
+  "s08_write_setting",
+  "s08_settings_schema",
+  "s08_settings_search",
+  "s08_update_shortcut",
+  "s08_request_step_up",
+  "s08_import_license",
+  "s08_export_data",
+  "s08_import_data",
+  "s08_vault_passphrase_action",
+  "s08_vault_recovery_action",
+  "s08_project_settings",
+  "s08_team_settings",
+  "s08_get_view_state",
+  "s08_set_view_state",
+  "s08_window_geometry",
+  "s08_hide_settings"
+]
+
+[[permission]]
+identifier = "deny-s08-sentinels"
+description = "Refuse tool, pane, project-open, MCP, marketplace, and direct-file sentinel commands from Settings."
+commands.deny = [
+  "s08_sentinel_tool_command",
+  "s08_sentinel_pane_command",
+  "s08_sentinel_tab_project_open",
+  "s08_sentinel_mcp_command",
+  "s08_sentinel_marketplace_command",
+  "s08_sentinel_file_grant"
+]
+
+[[permission]]
+identifier = "allow-s08-open-settings"
+description = "Allow the main window to request the single macOS Settings window."
+commands.allow = ["s08_open_settings"]
+
+[[permission]]
+identifier = "allow-s08-main-test-controls"
+description = "Allow the main window's synthetic S08 harness controls only."
+commands.allow = [
+  "s08_test_destroy_settings",
+  "s08_test_lock_vault",
+  "s08_test_unlock_vault"
+]

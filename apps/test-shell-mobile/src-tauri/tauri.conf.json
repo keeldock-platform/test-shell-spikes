@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Test Shell Mobile",
+  "version": "0.1.0",
+  "identifier": "org.example.shellspikes.mobile",
+  "build": {
+    "frontendDist": "../../desktop/dist/web"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Test Shell",
+        "url": "index.html",
+        "width": 430,
+        "height": 900,
+        "resizable": true,
+        "decorations": true
+      }
+    ],
+    "security": {
+      "capabilities": ["mobile", "android"],
+      "freezePrototype": true,
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: asset: http://asset.localhost; font-src 'self'; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; frame-src 'none'; worker-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true
+  },
+  "plugins": {}
+}

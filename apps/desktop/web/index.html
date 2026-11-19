@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>Test Shell</title>
+    <link rel="stylesheet" href="./shell.css">
+    <script type="module" src="./bootstrap.js"></script>
+  </head>
+  <body>
+    <header class="shell-header" data-tauri-drag-region>
+      <div class="shell-brand" data-tauri-drag-region>Test Shell</div>
+      <output id="spike-frame-marker" aria-live="off" aria-label="Frame marker">ready · 0</output>
+    </header>
+    <main id="spike-root" tabindex="-1" aria-live="polite">
+      <section class="shell-card" aria-labelledby="shell-title">
+        <p class="eyebrow">Synthetic cross-platform fixture</p>
+        <h1 id="shell-title">Choose a shell scenario</h1>
+        <p>This page contains generated test content. Native surfaces are opened only by the active scenario.</p>
+        <label class="case-picker" for="case-id">Synthetic case ID
+          <input id="case-id" name="case-id" type="text" autocomplete="off" spellcheck="false">
+        </label>
+        <nav id="scenario-list" aria-label="Available shell scenarios"></nav>
+      </section>
+    </main>
+    <footer>Generated values only · no account or network access</footer>
+  </body>
+</html>
